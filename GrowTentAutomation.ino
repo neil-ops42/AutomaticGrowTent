@@ -35,20 +35,26 @@ void setup() {
     Serial.begin(115200);
     Serial.println("\n=== GrowTentAutomation Starting ===");
 
-    // Initialize I2C FIRST
-    Wire.begin(SDA_PIN, SCL_PIN);  // ← ADD THIS
+    // 1. I2C (needed by sensors)
+    Wire.begin(SDA_PIN, SCL_PIN);
     delay(10);
-    
-    // WiFi
+
+    // 2. WiFi
     connectWiFi();
 
-    // NTP Time
+    // 3. NTP Time
     initTime();
 
-    // Initialize all modules
+    // 4. GPIO setup
     pinMode(ONE_WIRE_BUS, INPUT_PULLUP);
+
+    // 5. Storage (mounts SPIFFS once)
     Settings.begin();
+
+    // 6. Sensors (now Wire is ready)
     Sensors.begin();
+
+    // 7. Other modules
     Relays.begin();
     DataLog.begin();
     OLED.begin();
