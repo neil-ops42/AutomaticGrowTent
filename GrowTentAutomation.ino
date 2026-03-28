@@ -35,6 +35,10 @@ void setup() {
     Serial.begin(115200);
     Serial.println("\n=== GrowTentAutomation Starting ===");
 
+    // Initialize I2C FIRST
+    Wire.begin(SDA_PIN, SCL_PIN);  // ← ADD THIS
+    delay(10);
+    
     // WiFi
     connectWiFi();
 
