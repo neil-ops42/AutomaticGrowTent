@@ -13,8 +13,8 @@ extern const char* HISTORY_FILE;
 // ─────────────────────────────────────────────
 // TIME CONFIG
 // ─────────────────────────────────────────────
-const long GMT_OFFSET_SEC     = -18000;   // UTC-5 (EST)
-const int  DAYLIGHT_OFFSET_SEC = 3600;    // DST
+constexpr long GMT_OFFSET_SEC     = -18000;   // UTC-5 (EST)
+constexpr int  DAYLIGHT_OFFSET_SEC = 3600;    // DST
 
 // ─────────────────────────────────────────────
 // RELAY PINS + LOGIC
@@ -28,8 +28,8 @@ const int  DAYLIGHT_OFFSET_SEC = 3600;    // DST
 // ─────────────────────────────────────────────
 // LIGHTING SCHEDULE (DEFAULT FOR CUSTOM MODE)
 // ─────────────────────────────────────────────
-const int LIGHT_ON_HOUR  = 7;   // 7:00 AM
-const int LIGHT_OFF_HOUR = 1;   // 1:00 AM
+constexpr int LIGHT_ON_HOUR  = 7;   // 7:00 AM
+constexpr int LIGHT_OFF_HOUR = 1;   // 1:00 AM
 
 // ─────────────────────────────────────────────
 // SENSOR PINS
@@ -48,9 +48,9 @@ const int LIGHT_OFF_HOUR = 1;   // 1:00 AM
 // ─────────────────────────────────────────────
 // LOGGING + SENSOR TIMING
 // ─────────────────────────────────────────────
-const unsigned long LOG_INTERVAL_MS          = 60 * 1000;   // 1 minute
-const unsigned long AIR_SENSOR_INTERVAL_MS   = 5000;        // 5 sec
-const unsigned long WATER_SENSOR_INTERVAL_MS = 5000;        // 5 sec
+constexpr unsigned long LOG_INTERVAL_MS          = 60 * 1000;   // 1 minute
+constexpr unsigned long AIR_SENSOR_INTERVAL_MS   = 5000;        // 5 sec
+constexpr unsigned long WATER_SENSOR_INTERVAL_MS = 5000;        // 5 sec
 
 // ─────────────────────────────────────────────
 // WIFI SIGNAL THRESHOLDS (RSSI)

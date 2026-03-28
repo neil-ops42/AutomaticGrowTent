@@ -53,6 +53,25 @@ void DataLogClass::writeEntry(const SensorData& data)
     char ts[32];
     strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
 
+    // Rotate log if it exceeds ~100 KB to prevent filling SPIFFS
+    static const size_t MAX_LOG_BYTES = 100UL * 1024UL;
+    {
+        File check = SPIFFS.open(HISTORY_FILE, FILE_READ);
+        if (check) {
+            if (check.size() >= MAX_LOG_BYTES) {
+                check.close();
+                SPIFFS.remove(HISTORY_FILE);
+                File hdr = SPIFFS.open(HISTORY_FILE, FILE_WRITE);
+                if (hdr) {
+                    hdr.println("time,airTemp,airHum,waterTemp");
+                    hdr.close();
+                }
+            } else {
+                check.close();
+            }
+        }
+    }
+
     File file = SPIFFS.open(HISTORY_FILE, FILE_APPEND);
     if (!file)
     {

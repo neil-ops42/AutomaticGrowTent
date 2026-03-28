@@ -4,11 +4,6 @@
 
 RelaysClass Relays;
 
-// NVS keys
-static const char* PREF_NS  = "ga";
-static const char* KEY_ONH  = "onH";
-static const char* KEY_OFFH = "offH";
-
 // ─────────────────────────────────────────────
 // Initialize relay hardware + load saved hours
 // ─────────────────────────────────────────────
@@ -70,8 +65,8 @@ bool RelaysClass::isLightScheduledOn()
     switch (state.mode)
     {
         case MODE_VEG:
-            // VEG = 18/6 (example: ON 06:00 → 24:00)
-            return (hour >= 6 || hour < 0); // same overnight form; == hour >= 6
+            // VEG = 18/6 (ON 06:00–23:59, OFF 00:00–05:59)
+            return (hour >= 6);
 
         case MODE_FLOWER:
             // FLOWER = 12/12 (example: ON 08:00 → 20:00)

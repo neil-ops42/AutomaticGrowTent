@@ -131,9 +131,9 @@ void WebServerClass::setupRoutes() {
     else strcpy(ts, "NO_TIME");
 
     String json = "{";
-    json += "\"air_temp\":" + String(s.airTemp, 1) + ",";
-    json += "\"air_humidity\":" + String(s.airHum, 1) + ",";
-    json += "\"water_temp\":" + String(s.waterTemp, 1) + ",";
+    json += "\"air_temp\":" + jnum(s.airTemp) + ",";
+    json += "\"air_humidity\":" + jnum(s.airHum) + ",";
+    json += "\"water_temp\":" + jnum(s.waterTemp) + ",";
     json += "\"time\":\"" + String(ts) + "\"";
     json += "}";
 
@@ -172,9 +172,6 @@ void WebServerClass::setupRoutes() {
     Relays.state.mode = MODE_CUSTOM; // switch to custom
     Relays.loop();                   // apply immediately
     WebServer.broadcastRelayState(); // notify clients
-    // Persist settings after changing schedule/mode
-    AppSettings s; s.mode = Relays.state.mode; s.on_hour = onH; s.off_hour = offH;
-    Settings.save(s);
 
     req->send(200, "application/json", "{\"ok\":true}");
   });
@@ -200,22 +197,24 @@ void WebServerClass::setupWebSocket() {
       return;
     }
     if (type == WS_EVT_DATA) {
-      data[len] = 0;
-      String msg = (char*)data;
+      String msg;
+      msg.reserve(len + 1);
+      for (size_t i = 0; i < len; i++) msg += (char)data[i];
 
       if (msg == "relay1_on")  Relays.setRelay(1, true);
       if (msg == "relay1_off") Relays.setRelay(1, false);
       if (msg == "relay2_on")  Relays.setRelay(2, true);
       if (msg == "relay2_off") Relays.setRelay(2, false);
 
-      if (msg == "mode_veg")    Relays.state.mode = MODE_VEG;
-      if (msg == "mode_flower") Relays.state.mode = MODE_FLOWER;
-      if (msg == "mode_custom") Relays.state.mode = MODE_CUSTOM;
-
-      // Persist settings on any mode change / after handling messages
-      uint8_t onH, offH; Relays.getCustomSchedule(onH, offH);
-      AppSettings s; s.mode = Relays.state.mode; s.on_hour = onH; s.off_hour = offH;
-      Settings.save(s);
+      if (msg == "mode_veg" || msg == "mode_flower" || msg == "mode_custom") {
+        if (msg == "mode_veg")    Relays.state.mode = MODE_VEG;
+        if (msg == "mode_flower") Relays.state.mode = MODE_FLOWER;
+        if (msg == "mode_custom") Relays.state.mode = MODE_CUSTOM;
+        // Persist mode change (schedule changes are saved inside setCustomSchedule)
+        uint8_t onH, offH; Relays.getCustomSchedule(onH, offH);
+        AppSettings s; s.mode = Relays.state.mode; s.on_hour = onH; s.off_hour = offH;
+        Settings.save(s);
+      }
 
       broadcastRelayState();
     }

@@ -40,7 +40,6 @@ void SensorsClass::loop()
     // Water sensor every 5 sec
     if (now - lastWaterRead >= WATER_SENSOR_INTERVAL_MS)
     {
-        lastWaterRead = now;
         readWater();
     }
 }
@@ -96,6 +95,7 @@ void SensorsClass::readWater()
     }
     current.lastUpdate = millis();
     waiting = false;
+    lastWaterRead = millis(); // interval starts after full read cycle completes
 }
 
 // ─────────────────────────────────────────────
