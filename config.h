@@ -1,0 +1,63 @@
+#ifndef CONFIG_H
+#define CONFIG_H
+
+// ─────────────────────────────────────────────
+// EXTERN STRING CONSTANTS (defined once in main.ino)
+// These must NOT be defined in headers.
+// ─────────────────────────────────────────────
+extern const char* WIFI_SSID;
+extern const char* WIFI_PASSWORD;
+extern const char* NTP_SERVER;
+extern const char* HISTORY_FILE;
+
+// ─────────────────────────────────────────────
+// TIME CONFIG
+// ─────────────────────────────────────────────
+const long GMT_OFFSET_SEC     = -18000;   // UTC-5 (EST)
+const int  DAYLIGHT_OFFSET_SEC = 3600;    // DST
+
+// ─────────────────────────────────────────────
+// RELAY PINS + LOGIC
+// ─────────────────────────────────────────────
+#define PIN_RELAY_1 27      // Light relay pin
+#define PIN_RELAY_2 26      // Fan relay pin
+
+#define RELAY_ACTIVE_STATE   LOW
+#define RELAY_INACTIVE_STATE HIGH
+
+// ─────────────────────────────────────────────
+// LIGHTING SCHEDULE (DEFAULT FOR CUSTOM MODE)
+// ─────────────────────────────────────────────
+const int LIGHT_ON_HOUR  = 7;   // 7:00 AM
+const int LIGHT_OFF_HOUR = 1;   // 1:00 AM
+
+// ─────────────────────────────────────────────
+// SENSOR PINS
+// ─────────────────────────────────────────────
+#define ONE_WIRE_BUS 14
+#define SDA_PIN 21
+#define SCL_PIN 22
+
+// ─────────────────────────────────────────────
+// OLED DISPLAY SETTINGS
+// ─────────────────────────────────────────────
+#define SCREEN_WIDTH 128
+#define SCREEN_HEIGHT 64
+#define OLED_ADDRESS 0x3C
+
+// ─────────────────────────────────────────────
+// LOGGING + SENSOR TIMING
+// ─────────────────────────────────────────────
+const unsigned long LOG_INTERVAL_MS          = 60 * 1000;   // 1 minute
+const unsigned long AIR_SENSOR_INTERVAL_MS   = 5000;        // 5 sec
+const unsigned long WATER_SENSOR_INTERVAL_MS = 5000;        // 5 sec
+
+// ─────────────────────────────────────────────
+// WIFI SIGNAL THRESHOLDS (RSSI)
+// ─────────────────────────────────────────────
+#define WIFI_LVL_4 -55
+#define WIFI_LVL_3 -67
+#define WIFI_LVL_2 -70
+#define WIFI_LVL_1 -80
+
+#endif

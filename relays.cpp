@@ -1,0 +1,151 @@
+#include "relays.h"
+#include <time.h>
+#include "settings.h"
+
+RelaysClass Relays;
+
+// NVS keys
+static const char* PREF_NS  = "ga";
+static const char* KEY_ONH  = "onH";
+static const char* KEY_OFFH = "offH";
+
+// ─────────────────────────────────────────────
+// Initialize relay hardware + load saved hours
+// ─────────────────────────────────────────────
+void RelaysClass::begin()
+{
+    pinMode(PIN_RELAY_1, OUTPUT);
+    pinMode(PIN_RELAY_2, OUTPUT);
+
+    // Default ON
+    digitalWrite(PIN_RELAY_1, RELAY_ACTIVE_STATE);
+    digitalWrite(PIN_RELAY_2, RELAY_ACTIVE_STATE);
+
+    state.light = true;
+    state.fan   = true;
+    state.manualLightOverride = false;
+    state.mode = MODE_CUSTOM;
+
+    // Load from settings file (if present)
+    AppSettings s;
+    if (Settings.load(s)) {
+        customOnHour = s.on_hour;
+        customOffHour = s.off_hour;
+        state.mode    = s.mode;
+    }
+}
+
+// ─────────────────────────────────────────────
+// Loop: apply schedule unless overridden
+// ─────────────────────────────────────────────
+void RelaysClass::loop()
+{
+    updateLightSchedule();
+}
+
+// ─────────────────────────────────────────────
+// Light Schedule Logic (only when no manual override)
+// ─────────────────────────────────────────────
+void RelaysClass::updateLightSchedule()
+{
+    if (state.manualLightOverride)
+        return;  // user override active — do not touch
+
+    bool scheduled = isLightScheduledOn();
+
+    if (scheduled != state.light)
+        setRelay(1, scheduled, /*fromSchedule*/ true);
+}
+
+// ─────────────────────────────────────────────
+// Grow‑Mode Lighting Logic
+// ─────────────────────────────────────────────
+bool RelaysClass::isLightScheduledOn()
+{
+    struct tm t;
+    if (!getLocalTime(&t)) return false;  // Fail safe
+
+    int hour = t.tm_hour;
+
+    switch (state.mode)
+    {
+        case MODE_VEG:
+            // VEG = 18/6 (example: ON 06:00 → 24:00)
+            return (hour >= 6 || hour < 0); // same overnight form; == hour >= 6
+
+        case MODE_FLOWER:
+            // FLOWER = 12/12 (example: ON 08:00 → 20:00)
+            return (hour >= 8 && hour < 20);
+
+        case MODE_CUSTOM:
+        default:
+            // Runtime-editable schedule (spans midnight)
+            return (hour >= customOnHour || hour < customOffHour);
+    }
+}
+
+// ─────────────────────────────────────────────
+// Set Relay State
+// fromSchedule=false → manual change: set manual override
+// fromSchedule=true  → scheduler applying: do NOT set override
+// ─────────────────────────────────────────────
+void RelaysClass::setRelay(uint8_t id, bool stateIn, bool fromSchedule)
+{
+    if (id == 1) {
+        state.light = stateIn;
+        if (!fromSchedule) state.manualLightOverride = true;
+        digitalWrite(PIN_RELAY_1, stateIn ? RELAY_ACTIVE_STATE : RELAY_INACTIVE_STATE);
+        return;
+    }
+
+    if (id == 2) {
+        state.fan = stateIn;
+        digitalWrite(PIN_RELAY_2, stateIn ? RELAY_ACTIVE_STATE : RELAY_INACTIVE_STATE);
+        return;
+    }
+}
+
+// ─────────────────────────────────────────────
+// Query a relay state
+// ─────────────────────────────────────────────
+bool RelaysClass::getRelay(uint8_t id)
+{
+    if (id == 1) return state.light;
+    if (id == 2) return state.fan;
+    return false;
+}
+
+// ─────────────────────────────────────────────
+// Report full state struct
+// ─────────────────────────────────────────────
+RelayState RelaysClass::getState()
+{
+    return state;
+}
+
+// ─────────────────────────────────────────────
+// Runtime-editable schedule (persisted)
+// ─────────────────────────────────────────────
+void RelaysClass::setCustomSchedule(uint8_t onH, uint8_t offH)
+{
+    if (onH > 23 || offH > 23) return;
+
+    customOnHour  = onH;
+    customOffHour = offH;
+
+    // Allow scheduler to take over immediately
+    state.manualLightOverride = false;
+
+    // Persist to file with current mode
+    AppSettings s;
+    s.mode = state.mode;
+    s.on_hour = customOnHour;
+    s.off_hour = customOffHour;
+    Settings.save(s);
+}
+
+void RelaysClass::getCustomSchedule(uint8_t& onH, uint8_t& offH)
+{
+    onH  = customOnHour;
+    offH = customOffHour;
+}
