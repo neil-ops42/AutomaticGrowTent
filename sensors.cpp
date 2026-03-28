@@ -70,19 +70,32 @@ void SensorsClass::readAir()
 // ─────────────────────────────────────────────
 void SensorsClass::readWater()
 {
-    dallas.requestTemperatures();
-    float t = dallas.getTempCByIndex(0);
+    static unsigned long requestTime = 0;
+    static bool waiting = false;
 
-    if (t == DEVICE_DISCONNECTED_C || t == 85.0 || t == -999)
-    {
-        current.waterTemp = NAN;
+    unsigned long now = millis();
+    
+    if (!waiting) {
+        // Start request (minimal time)
+        dallas.requestTemperatures();
+        requestTime = now;
+        waiting = true;
+        return;  // Don't block
     }
-    else
-    {
+    
+    if (now - requestTime < 750) {
+        return;  // Wait for temp to be ready
+    }
+    
+    // Now read the result (fast)
+    float t = dallas.getTempCByIndex(0);
+    if (t == DEVICE_DISCONNECTED_C || t == 85.0 || t == -999) {
+        current.waterTemp = NAN;
+    } else {
         current.waterTemp = t;
     }
-
     current.lastUpdate = millis();
+    waiting = false;
 }
 
 // ─────────────────────────────────────────────
