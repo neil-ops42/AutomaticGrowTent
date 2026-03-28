@@ -45,6 +45,9 @@ public:
     void setCustomSchedule(uint8_t onH, uint8_t offH);
     void getCustomSchedule(uint8_t& onH, uint8_t& offH);
 
+    // Clear manual override and let the scheduler resume immediately
+    void resumeSchedule() { state.manualLightOverride = false; }
+
 private:
     void updateLightSchedule();
     bool isLightScheduledOn();

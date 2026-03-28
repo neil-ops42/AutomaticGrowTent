@@ -3,20 +3,20 @@
 DataLogClass DataLog;
 
 // ─────────────────────────────────────────────
-// Initialize SPIFFS and ensure CSV is ready
+// Initialize LittleFS and ensure CSV is ready
 // ─────────────────────────────────────────────
 void DataLogClass::begin()
 {
-    if (!SPIFFS.begin(false))
+    if (!LittleFS.begin(false))
     {
-        Serial.println("SPIFFS not mounted! Call Setting.begin() first.");
+        Serial.println("LittleFS not mounted! Call Settings.begin() first.");
         return;
     }
 
     // Ensure the CSV file exists and has a header
-    if (!SPIFFS.exists(HISTORY_FILE))
+    if (!LittleFS.exists(HISTORY_FILE))
     {
-        File f = SPIFFS.open(HISTORY_FILE, FILE_WRITE);
+        File f = LittleFS.open(HISTORY_FILE, FILE_WRITE);
         if (f)
         {
             f.println("time,airTemp,airHum,waterTemp");
@@ -47,15 +47,15 @@ void DataLogClass::loop()
 void DataLogClass::rotateLog()
 {
     // Remove any previous archive so rename succeeds
-    if (SPIFFS.exists(HISTORY_OLD_FILE)) {
-        SPIFFS.remove(HISTORY_OLD_FILE);
+    if (LittleFS.exists(HISTORY_OLD_FILE)) {
+        LittleFS.remove(HISTORY_OLD_FILE);
     }
 
     // Archive the current log
-    SPIFFS.rename(HISTORY_FILE, HISTORY_OLD_FILE);
+    LittleFS.rename(HISTORY_FILE, HISTORY_OLD_FILE);
 
     // Create a fresh log with just the CSV header
-    File hdr = SPIFFS.open(HISTORY_FILE, FILE_WRITE);
+    File hdr = LittleFS.open(HISTORY_FILE, FILE_WRITE);
     if (hdr) {
         hdr.println("time,airTemp,airHum,waterTemp");
         hdr.close();
@@ -76,9 +76,9 @@ void DataLogClass::writeEntry(const SensorData& data)
     char ts[32];
     strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
 
-    // Rotate log if it exceeds the size limit to prevent filling SPIFFS
+    // Rotate log if it exceeds the size limit to prevent filling LittleFS
     {
-        File check = SPIFFS.open(HISTORY_FILE, FILE_READ);
+        File check = LittleFS.open(HISTORY_FILE, FILE_READ);
         if (check) {
             bool overLimit = check.size() >= MAX_LOG_BYTES;
             check.close();
@@ -88,19 +88,25 @@ void DataLogClass::writeEntry(const SensorData& data)
         }
     }
 
-    File file = SPIFFS.open(HISTORY_FILE, FILE_APPEND);
+    File file = LittleFS.open(HISTORY_FILE, FILE_APPEND);
     if (!file)
     {
         Serial.println("Failed to open history.csv for append");
         return;
     }
 
+    // Use empty fields for NaN values instead of a magic sentinel (-999).
+    // parseFloat("") returns NaN in JavaScript, preserving chart behaviour.
+    auto fmtVal = [](float v) -> String {
+        return isnan(v) ? "" : String(v, 2);
+    };
+
     file.printf(
-        "%s,%.2f,%.2f,%.2f\n",
+        "%s,%s,%s,%s\n",
         ts,
-        isnan(data.airTemp) ? -999.0 : data.airTemp,
-        isnan(data.airHum)  ? -999.0 : data.airHum,
-        isnan(data.waterTemp) ? -999.0 : data.waterTemp
+        fmtVal(data.airTemp).c_str(),
+        fmtVal(data.airHum).c_str(),
+        fmtVal(data.waterTemp).c_str()
     );
 
     file.close();

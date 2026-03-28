@@ -22,6 +22,11 @@ public:
     void begin();
     void loop();
 
+    // Set to true by the WebSocket device_restart handler; consumed in main loop()
+    bool restartRequested = false;
+
+    void broadcastRelayState();
+
 private:
     AsyncWebServer server = AsyncWebServer(80);
     AsyncWebSocket ws = AsyncWebSocket("/ws");
@@ -29,7 +34,6 @@ private:
     void setupRoutes();
     void setupWebSocket();
     void handleWebSocketMessage(AsyncWebSocketClient* client, const String& msg);
-    void broadcastRelayState();
 };
 
 extern WebServerClass WebServer;

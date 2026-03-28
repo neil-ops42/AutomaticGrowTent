@@ -40,13 +40,21 @@ void RelaysClass::loop()
 
 // ─────────────────────────────────────────────
 // Light Schedule Logic (only when no manual override)
+// Auto-clears manual override at each schedule transition boundary.
 // ─────────────────────────────────────────────
 void RelaysClass::updateLightSchedule()
 {
-    if (state.manualLightOverride)
-        return;  // user override active — do not touch
-
     bool scheduled = isLightScheduledOn();
+
+    if (state.manualLightOverride) {
+        // Auto-clear override when the scheduler would change state,
+        // i.e., at the next on/off transition boundary.
+        if (scheduled != state.light) {
+            state.manualLightOverride = false;
+        } else {
+            return;  // override still active — do not touch
+        }
+    }
 
     if (scheduled != state.light)
         setRelay(1, scheduled, /*fromSchedule*/ true);
@@ -66,10 +74,12 @@ bool RelaysClass::isLightScheduledOn()
     {
         case MODE_VEG:
             // VEG = 18/6 (ON 06:00–23:59, OFF 00:00–05:59)
+            // NOTE: Start hour is fixed at 06:00; adjust in code to change.
             return (hour >= 6);
 
         case MODE_FLOWER:
-            // FLOWER = 12/12 (example: ON 08:00 → 20:00)
+            // FLOWER = 12/12 (ON 08:00–19:59, OFF 20:00–07:59)
+            // NOTE: Start/end hours are fixed at 08:00/20:00; adjust in code to change.
             return (hour >= 8 && hour < 20);
 
         case MODE_CUSTOM:

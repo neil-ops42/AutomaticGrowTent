@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <FS.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
+#include <ArduinoJson.h>
 #include <time.h>
 
 #include "webserver.h"
@@ -9,15 +10,26 @@
 
 WebServerClass WebServer;
 
-static inline String jnum(float v) { return isnan(v) ? "null" : String(v, 1); }
+// ─────────────────────────────────────────────
+// Helper: require HTTP Basic Auth on sensitive routes.
+// Returns true and sends 401 if credentials are wrong.
+// ─────────────────────────────────────────────
+static bool requireAuth(AsyncWebServerRequest* req)
+{
+    if (!req->authenticate(WEB_AUTH_USERNAME, WEB_AUTH_PASSWORD)) {
+        req->requestAuthentication();
+        return true;
+    }
+    return false;
+}
 
 // =====================================================================
 // Server Setup & WebSocket Logic
 // =====================================================================
 void WebServerClass::begin() {
-  File root = SPIFFS.open("/");
+  File root = LittleFS.open("/");
   if (!root) {
-    Serial.println("SPIFFS not ready - ensure DataLog initialized first");
+    Serial.println("LittleFS not ready - ensure Settings initialized first");
   } else {
     root.close();
   }
@@ -46,13 +58,14 @@ void WebServerClass::loop() {
     if (getLocalTime(&t)) strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
     else strcpy(ts, "NO_TIME");
 
-    String json = "{";
-    json += "\"air_temp\":"     + jnum(s.airTemp)  + ",";
-    json += "\"air_humidity\":" + jnum(s.airHum)    + ",";
-    json += "\"water_temp\":"   + jnum(s.waterTemp) + ",";
-    json += "\"time\":\""       + String(ts) + "\"";
-    json += "}";
+    StaticJsonDocument<128> doc;
+    doc["air_temp"]     = s.airTemp;   // ArduinoJson serializes NaN as null
+    doc["air_humidity"] = s.airHum;
+    doc["water_temp"]   = s.waterTemp;
+    doc["time"]         = ts;
 
+    String json;
+    serializeJson(doc, json);
     ws.textAll(json);
   }
 }
@@ -98,34 +111,34 @@ void WebServerClass::setupRoutes() {
 
   // CSV history passthrough
   server.on("/history.csv", HTTP_GET, [](AsyncWebServerRequest* req){
-    req->send(SPIFFS, HISTORY_FILE, "text/csv");
+    req->send(LittleFS, HISTORY_FILE, "text/csv");
   });
-  
+
   server.on("/settings/reset", HTTP_POST, [](AsyncWebServerRequest* req){
-    if (SPIFFS.exists(SETTINGS_FILE)) {
-      SPIFFS.remove(SETTINGS_FILE);
+    if (requireAuth(req)) return;
+    if (LittleFS.exists(SETTINGS_FILE)) {
+      LittleFS.remove(SETTINGS_FILE);
     }
     req->send(200, "application/json", "{\"ok\":true}");
-    delay(500);
-    ESP.restart();
+    WebServer.restartRequested = true;
   });
 
   server.on("/history/reset", HTTP_POST, [](AsyncWebServerRequest* req){
     bool ok = true;
 
     // Remove existing file
-    if (SPIFFS.exists(HISTORY_FILE)) {
-        ok = SPIFFS.remove(HISTORY_FILE);
+    if (LittleFS.exists(HISTORY_FILE)) {
+        ok = LittleFS.remove(HISTORY_FILE);
     }
 
     // Recreate with CSV header that matches the logger
     // Header: time,airTemp,airHum,waterTemp
     if (ok) {
-        File f = SPIFFS.open(HISTORY_FILE, FILE_WRITE);
+        File f = LittleFS.open(HISTORY_FILE, FILE_WRITE);
         if (!f) ok = false;
         else {
-        f.println("time,airTemp,airHum,waterTemp"); // keep consistent with DataLog
-        f.close();
+          f.println("time,airTemp,airHum,waterTemp"); // keep consistent with DataLog
+          f.close();
         }
     }
 
@@ -140,33 +153,22 @@ void WebServerClass::setupRoutes() {
     if (getLocalTime(&t)) strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
     else strcpy(ts, "NO_TIME");
 
-    String json = "{";
-    json += "\"air_temp\":" + jnum(s.airTemp) + ",";
-    json += "\"air_humidity\":" + jnum(s.airHum) + ",";
-    json += "\"water_temp\":" + jnum(s.waterTemp) + ",";
-    json += "\"time\":\"" + String(ts) + "\"";
-    json += "}";
+    StaticJsonDocument<128> doc;
+    doc["air_temp"]     = s.airTemp;   // ArduinoJson serializes NaN as null
+    doc["air_humidity"] = s.airHum;
+    doc["water_temp"]   = s.waterTemp;
+    doc["time"]         = ts;
 
+    String json;
+    serializeJson(doc, json);
     req->send(200, "application/json", json);
   });
 
-  // Relay REST fallbacks (if you click these from outside Controls)
-  server.on("/relay1/on",  HTTP_GET, [this](AsyncWebServerRequest* req){ Relays.setRelay(1, true);  broadcastRelayState(); req->send(200,"text/plain","Light ON"); });
-  server.on("/relay1/off", HTTP_GET, [this](AsyncWebServerRequest* req){ Relays.setRelay(1, false); broadcastRelayState(); req->send(200,"text/plain","Light OFF"); });
-  server.on("/relay2/on",  HTTP_GET, [this](AsyncWebServerRequest* req){ Relays.setRelay(2, true);  broadcastRelayState(); req->send(200,"text/plain","Fan ON"); });
-  server.on("/relay2/off", HTTP_GET, [this](AsyncWebServerRequest* req){ Relays.setRelay(2, false); broadcastRelayState(); req->send(200,"text/plain","Fan OFF"); });
-
-  // GET /schedule -> {"mode":"veg|flower|custom","on_hour":7,"off_hour":1}
-  server.on("/schedule", HTTP_GET, [](AsyncWebServerRequest* req){
-    uint8_t onH, offH; Relays.getCustomSchedule(onH, offH);
-    RelayState r = Relays.getState();
-    String json = "{";
-    json += "\"mode\":\"" + String(r.mode==MODE_VEG ? "veg" : r.mode==MODE_FLOWER ? "flower" : "custom") + "\",";
-    json += "\"on_hour\":" + String(onH) + ",";
-    json += "\"off_hour\":" + String(offH);
-    json += "}";
-    req->send(200, "application/json", json);
-  });
+  // Relay REST fallbacks — POST to avoid GET side-effects / CSRF
+  server.on("/relay1/on",  HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(1, true);  broadcastRelayState(); req->send(200,"text/plain","Light ON"); });
+  server.on("/relay1/off", HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(1, false); broadcastRelayState(); req->send(200,"text/plain","Light OFF"); });
+  server.on("/relay2/on",  HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(2, true);  broadcastRelayState(); req->send(200,"text/plain","Fan ON"); });
+  server.on("/relay2/off", HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(2, false); broadcastRelayState(); req->send(200,"text/plain","Fan OFF"); });
 
   // POST /schedule => on=HH&off=HH
   server.on("/schedule", HTTP_POST, [](AsyncWebServerRequest* req){
@@ -174,50 +176,58 @@ void WebServerClass::setupRoutes() {
       req->send(400, "application/json", "{\"error\":\"on/off required\"}");
       return;
     }
-    int onH = req->getParam("on", true)->value().toInt();
+    int onH  = req->getParam("on",  true)->value().toInt();
     int offH = req->getParam("off", true)->value().toInt();
-    if (onH < 0) onH = 0; if (onH > 23) onH = 23;
+    if (onH  < 0) onH  = 0; if (onH  > 23) onH  = 23;
     if (offH < 0) offH = 0; if (offH > 23) offH = 23;
     Relays.setCustomSchedule((uint8_t)onH, (uint8_t)offH);
     Relays.state.mode = MODE_CUSTOM; // switch to custom
     Relays.loop();                   // apply immediately
     WebServer.broadcastRelayState(); // notify clients
     AppSettings s;
-s.mode = MODE_CUSTOM;
-s.on_hour = (uint8_t)onH;
-s.off_hour = (uint8_t)offH;
-Settings.save(s);
+    s.mode     = MODE_CUSTOM;
+    s.on_hour  = (uint8_t)onH;
+    s.off_hour = (uint8_t)offH;
+    Settings.save(s);
 
     req->send(200, "application/json", "{\"ok\":true}");
   });
 
-    server.on("/settings", HTTP_GET, [](AsyncWebServerRequest* req){
-    uint8_t onH, offH; Relays.getCustomSchedule(onH, offH);
-    String mode = (Relays.state.mode==MODE_VEG?"veg": Relays.state.mode==MODE_FLOWER?"flower":"custom");
-    String json = "{";
-    json += "\"mode\":\"" + mode + "\",";
-    json += "\"on_hour\":" + String(onH) + ",";
-    json += "\"off_hour\":" + String(offH);
-    json += "}";
+  // GET /settings -> {"mode":"veg|flower|custom","on_hour":7,"off_hour":1}
+  server.on("/settings", HTTP_GET, [](AsyncWebServerRequest* req){
+    uint8_t onH, offH;
+    Relays.getCustomSchedule(onH, offH);
+    const char* modeStr = Relays.state.mode == MODE_VEG    ? "veg"
+                        : Relays.state.mode == MODE_FLOWER ? "flower"
+                                                           : "custom";
+    StaticJsonDocument<64> doc;
+    doc["mode"]     = modeStr;
+    doc["on_hour"]  = onH;
+    doc["off_hour"] = offH;
+
+    String json;
+    serializeJson(doc, json);
     req->send(200, "application/json", json);
-    });
+  });
 
   // NOTE: /update is handled by ElegantOTA's own handler (default UI).
 
   // GET /settings/backup — download current settings as a file attachment
   server.on("/settings/backup", HTTP_GET, [](AsyncWebServerRequest* req){
-    if (!SPIFFS.exists(SETTINGS_FILE)) {
+    if (requireAuth(req)) return;
+    if (!LittleFS.exists(SETTINGS_FILE)) {
       req->send(404, "application/json", "{\"error\":\"settings file not found\"}");
       return;
     }
-    AsyncWebServerResponse* resp = req->beginResponse(SPIFFS, SETTINGS_FILE, "text/plain");
+    AsyncWebServerResponse* resp = req->beginResponse(LittleFS, SETTINGS_FILE, "text/plain");
     resp->addHeader("Content-Disposition", "attachment; filename=\"settings_backup.txt\"");
     req->send(resp);
   });
 
-  // POST /settings/restore — upload a settings file, write it to SPIFFS, and reload
+  // POST /settings/restore — upload a settings file, write it to LittleFS, and reload
   server.on("/settings/restore", HTTP_POST,
     [](AsyncWebServerRequest* req) {
+      if (requireAuth(req)) return;
       AppSettings s;
       if (!Settings.load(s)) {
         req->send(500, "application/json", "{\"error\":\"settings saved but could not be parsed\"}");
@@ -230,7 +240,7 @@ Settings.save(s);
     },
     [](AsyncWebServerRequest* req, const String& /*filename*/, size_t index, uint8_t* data, size_t len, bool final) {
       if (index == 0) {
-        req->_tempFile = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
+        req->_tempFile = LittleFS.open(SETTINGS_FILE, FILE_WRITE);
       }
       if (req->_tempFile) {
         req->_tempFile.write(data, len);
@@ -242,11 +252,11 @@ Settings.save(s);
 
   // GET /history_old.csv — serve the archived log created by log rotation
   server.on("/history_old.csv", HTTP_GET, [](AsyncWebServerRequest* req){
-    if (!SPIFFS.exists(HISTORY_OLD_FILE)) {
+    if (!LittleFS.exists(HISTORY_OLD_FILE)) {
       req->send(404, "application/json", "{\"error\":\"no archived log available\"}");
       return;
     }
-    req->send(SPIFFS, HISTORY_OLD_FILE, "text/csv");
+    req->send(LittleFS, HISTORY_OLD_FILE, "text/csv");
   });
 }
 
@@ -261,15 +271,18 @@ void WebServerClass::setupWebSocket() {
       msg.reserve(len + 1);
       for (size_t i = 0; i < len; i++) msg += (char)data[i];
 
-      if (msg == "device_restart") {
-        delay(500);
-        ESP.restart();
+      // Require explicit confirmation command before restarting to prevent
+      // accidental or malicious reboots from a casual WebSocket message.
+      if (msg == "device_restart_confirm") {
+        restartRequested = true;  // handled safely in main loop()
       }
 
       if (msg == "relay1_on")  Relays.setRelay(1, true);
       if (msg == "relay1_off") Relays.setRelay(1, false);
       if (msg == "relay2_on")  Relays.setRelay(2, true);
       if (msg == "relay2_off") Relays.setRelay(2, false);
+
+      if (msg == "schedule_resume") Relays.resumeSchedule();
 
       if (msg == "mode_veg" || msg == "mode_flower" || msg == "mode_custom") {
         if (msg == "mode_veg")    Relays.state.mode = MODE_VEG;
@@ -289,15 +302,22 @@ void WebServerClass::setupWebSocket() {
 
 void WebServerClass::broadcastRelayState() {
   RelayState r = Relays.getState();
-  uint8_t onH, offH; Relays.getCustomSchedule(onH, offH);
+  uint8_t onH, offH;
+  Relays.getCustomSchedule(onH, offH);
 
-  String json = "{";
-  json += "\"relay1\":" + String(r.light ? "true" : "false") + ",";
-  json += "\"relay2\":" + String(r.fan   ? "true" : "false") + ",";
-  json += "\"mode\":\"" + String(r.mode==MODE_VEG ? "veg" : r.mode==MODE_FLOWER ? "flower" : "custom") + "\",";
-  json += "\"on_hour\":" + String(onH) + ",";
-  json += "\"off_hour\":" + String(offH);
-  json += "}";
+  const char* modeStr = r.mode == MODE_VEG    ? "veg"
+                      : r.mode == MODE_FLOWER  ? "flower"
+                                               : "custom";
 
+  StaticJsonDocument<128> doc;
+  doc["relay1"]           = r.light;
+  doc["relay2"]           = r.fan;
+  doc["mode"]             = modeStr;
+  doc["on_hour"]          = onH;
+  doc["off_hour"]         = offH;
+  doc["manual_override"]  = r.manualLightOverride;
+
+  String json;
+  serializeJson(doc, json);
   ws.textAll(json);
 }
