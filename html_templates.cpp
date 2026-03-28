@@ -55,6 +55,7 @@ ws.onmessage = (event) => {
     let j;
     try { j = JSON.parse(event.data); } catch(e) { return; }
 
+    // Sensor data (from periodic broadcast)
     if (j.air_temp !== undefined)
         document.getElementById("sb_air").innerText = j.air_temp;
 
@@ -63,6 +64,15 @@ ws.onmessage = (event) => {
 
     if (j.water_temp !== undefined)
         document.getElementById("sb_water").innerText = j.water_temp;
+
+    // Relay/mode state (from broadcastRelayState)
+    if ("relay1" in j) {
+        document.getElementById("lightIcon").className = "icon " + (j.relay1 ? "on" : "off");
+        document.getElementById("fanIcon").className   = "icon " + (j.relay2 ? "on" : "off");
+    }
+
+    // Dispatch to page-level handler if defined
+    if (typeof onWsMessage === "function") onWsMessage(j);
 };
 </script>
 
@@ -72,15 +82,6 @@ let theme = localStorage.getItem("theme") || "light";
 applyTheme();
 function toggleTheme(){ theme = (theme === "light") ? "dark" : "light"; localStorage.setItem("theme", theme); applyTheme(); }
 function applyTheme(){ if(theme === "dark") document.body.classList.add("dark"); else document.body.classList.remove("dark"); }
-
-// WebSocket for navbar relay status
-const ws_header = new WebSocket(`ws://${location.host}/ws`);
-ws_header.onmessage = (evt) => {
-  let d = {}; try { d = JSON.parse(evt.data); } catch (e) { return; }
-  if (!("relay1" in d)) return;
-  document.getElementById("lightIcon").className = "icon " + (d.relay1 ? "on" : "off");
-  document.getElementById("fanIcon").className   = "icon " + (d.relay2 ? "on" : "off");
-};
 </script>
 )rawliteral";
 
@@ -196,33 +197,23 @@ function setActiveMode(m){
   else                  document.getElementById('btnCustom').classList.add('active');
 }
 
-// Page WebSocket (separate from navbar's ws_header)
-const ws = new WebSocket(`ws://${location.host}/ws`);
-ws.onmessage = evt => {
-  try {
-    const d = JSON.parse(evt.data);
-    if ("mode" in d) setActiveMode(d.mode);           // live highlight from WS broadcast
-    if ("on_hour" in d) { onH.value = d.on_hour; offH.value = d.off_hour; } // keep schedule in sync
-  } catch(e) { /* ignore non-JSON frames */ }
-};
+// Receive relay/schedule updates via the shared header WebSocket
+function onWsMessage(d) {
+  if ("mode" in d) setActiveMode(d.mode);
+  if ("on_hour" in d) {
+    document.getElementById("onTime").value  = String(d.on_hour).padStart(2,"0") + ":00";
+    document.getElementById("offTime").value = String(d.off_hour).padStart(2,"0") + ":00";
+  }
+}
 
 // Initialize with current schedule+mode
 fetch('/schedule')
   .then(r=>r.json())
   .then(d=>{
-    onH.value = d.on_hour; offH.value = d.off_hour;    // initial hours
-    if (d.mode) setActiveMode(d.mode);                 // initial highlight
+    document.getElementById("onTime").value  = String(d.on_hour).padStart(2,"0") + ":00";
+    document.getElementById("offTime").value = String(d.off_hour).padStart(2,"0") + ":00";
+    if (d.mode) setActiveMode(d.mode);
   });
-
-// POST schedule update
-schedForm.onsubmit = (e) => {
-  e.preventDefault();
-  fetch('/schedule', {
-    method:'POST',
-    headers:{'Content-Type':'application/x-www-form-urlencoded'},
-    body:`on=${onH.value}&off=${offH.value}`
-  });
-};
 
 // Reset history (delete + recreate header)
 document.getElementById('resetHistoryBtn').onclick = async () => {
@@ -249,8 +240,6 @@ const char HTML_CHARTS[] PROGMEM = R"rawliteral(
 <canvas id="chart_water"    height="120"></canvas>
 
 <script>
-let ws = new WebSocket("ws://" + location.host + "/ws");
-
 // Chart.js datasets
 let airTempData = { labels: [], data: [] };
 let airHumData  = { labels: [], data: [] };
@@ -281,8 +270,9 @@ let chartAirTemp = makeChart("chart_air_temp", "Air Temp (°C)", "red");
 let chartAirHum  = makeChart("chart_air_hum",  "Air Humidity (%)", "blue");
 let chartWater   = makeChart("chart_water",    "Water Temp (°C)", "green");
 
-ws.onmessage = (event) => {
-    let j = JSON.parse(event.data);
+// Receive sensor data via the shared header WebSocket
+function onWsMessage(j) {
+    if (j.time === undefined) return;
     let t = j.time;
 
     // Append data

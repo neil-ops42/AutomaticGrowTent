@@ -4,6 +4,7 @@
 #include <esp_task_wdt.h>
 
 #include "config.h"
+#include "secrets.h"
 #include "sensors.h"
 #include "relays.h"
 #include "datalog.h"
@@ -12,8 +13,6 @@
 #include "html_templates.h"
 #include "settings.h"
 
-const char* WIFI_SSID     = "Wii";
-const char* WIFI_PASSWORD = "netc42!#";
 const char* NTP_SERVER    = "ca.pool.ntp.org";
 const char* HISTORY_FILE  = "/history.csv";
 
@@ -56,6 +55,18 @@ void setup() {
 }
 
 void loop() {
+    // WiFi reconnection check (every 30 seconds)
+    static unsigned long lastWiFiCheck = 0;
+    unsigned long now = millis();
+    if (now - lastWiFiCheck >= 30000) {
+        lastWiFiCheck = now;
+        if (WiFi.status() != WL_CONNECTED) {
+            Serial.println("WiFi lost — reconnecting...");
+            WiFi.disconnect();
+            WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        }
+    }
+
     Sensors.loop();
     esp_task_wdt_reset();
     Relays.loop();

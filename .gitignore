@@ -1,0 +1,9 @@
+# WiFi credentials — never commit the real secrets file
+secrets.h
+
+# Arduino build artifacts
+build/
+*.elf
+*.bin
+*.hex
+*.map
