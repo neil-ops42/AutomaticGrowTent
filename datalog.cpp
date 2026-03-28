@@ -7,9 +7,9 @@ DataLogClass DataLog;
 // ─────────────────────────────────────────────
 void DataLogClass::begin()
 {
-    if (!SPIFFS.begin(true))
+    if (!SPIFFS.begin(false))
     {
-        Serial.println("SPIFFS mount FAILED!");
+        Serial.println("SPIFFS not mounted! Call Setting.begin() first.");
         return;
     }
 
