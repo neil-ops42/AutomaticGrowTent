@@ -101,6 +101,15 @@ void WebServerClass::setupRoutes() {
     req->send(SPIFFS, HISTORY_FILE, "text/csv");
   });
   
+  server.on("/settings/reset", HTTP_POST, [](AsyncWebServerRequest* req){
+    if (SPIFFS.exists("/settings.txt")) {
+      SPIFFS.remove("/settings.txt");
+    }
+    req->send(200, "application/json", "{\"ok\":true}");
+    delay(500);
+    ESP.restart();
+  });
+
   server.on("/history/reset", HTTP_POST, [](AsyncWebServerRequest* req){
     bool ok = true;
 
@@ -206,6 +215,11 @@ void WebServerClass::setupWebSocket() {
       String msg;
       msg.reserve(len + 1);
       for (size_t i = 0; i < len; i++) msg += (char)data[i];
+
+      if (msg == "device_restart") {
+        delay(500);
+        ESP.restart();
+      }
 
       if (msg == "relay1_on")  Relays.setRelay(1, true);
       if (msg == "relay1_off") Relays.setRelay(1, false);

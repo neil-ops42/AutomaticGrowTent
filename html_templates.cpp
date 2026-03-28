@@ -184,9 +184,12 @@ function saveSchedule() {
 <p>
   <a href="/history.csv" download>Download history.csv</a>
 </p>
-<p>
-  <button id="resetHistoryBtn" style="background:#c62828;color:#fff;">Delete &amp; Start Fresh</button>
-</p>
+
+<hr>
+<h3>Device Control</h3>
+<button style="background:#c62828;color:#fff;" onclick="restartDevice()">Restart Device</button>
+<button style="background:#c62828;color:#fff;" onclick="resetSettings()">Reset Settings</button>
+<button id="resetHistoryBtn" style="background:#c62828;color:#fff;">Reset History</button>
 
 <script>
 // Helper to toggle the green highlight for the active mode button
@@ -214,6 +217,25 @@ fetch('/schedule')
     document.getElementById("offTime").value = String(d.off_hour).padStart(2,"0") + ":00";
     if (d.mode) setActiveMode(d.mode);
   });
+
+// Restart device via WebSocket
+function restartDevice() {
+  if (!confirm('Restart the device? It will take a few seconds to come back online.')) return;
+  ws.send('device_restart');
+  alert('Device is restarting...');
+}
+
+// Reset all settings to defaults then restart
+function resetSettings() {
+  if (!confirm('Reset all settings to defaults? The device will restart.')) return;
+  fetch('/settings/reset', { method: 'POST' })
+    .then(r => r.json())
+    .then(j => {
+      if (j.ok) alert('Settings reset. Device is restarting...');
+      else alert('Failed to reset settings.');
+    })
+    .catch(() => alert('Failed to reset settings.'));
+}
 
 // Reset history (delete + recreate header)
 document.getElementById('resetHistoryBtn').onclick = async () => {
