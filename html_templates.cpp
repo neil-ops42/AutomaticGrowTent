@@ -412,6 +412,7 @@ const char HTML_HISTORY[] PROGMEM = R"rawliteral(
 
 <p>Data loaded from <code>history.csv</code></p>
 
+<p id="histError" style="color:red;display:none;"></p>
 <canvas id="hist_air_temp" height="120"></canvas>
 <canvas id="hist_air_hum"  height="120"></canvas>
 <canvas id="hist_water"    height="120"></canvas>
@@ -420,7 +421,7 @@ const char HTML_HISTORY[] PROGMEM = R"rawliteral(
 <script>
 // Utility: parse CSV into arrays
 function calcVpd(tempC, rh) {
-    if (!isFinite(tempC) || !isFinite(rh)) return null;
+    if (tempC === null || rh === null || !isFinite(tempC) || !isFinite(rh)) return null;
     const rhPercent = (rh >= 0 && rh <= 1) ? (rh * 100) : rh;
     if (rhPercent < 0 || rhPercent > 100) return null;
     const svp = 0.6108 * Math.exp((17.27 * tempC) / (tempC + 237.3));
@@ -444,13 +445,17 @@ function parseCSV(text) {
 
         labels.push(parts[0]);
         // Empty fields represent NaN (no sensor reading); parseFloat("") → NaN
+        // Values <= -999 are legacy sentinel values and must also be treated as missing.
         const at = parts[1] === "" ? NaN : parseFloat(parts[1]);
         const ah = parts[2] === "" ? NaN : parseFloat(parts[2]);
         const wt = parts[3] === "" ? NaN : parseFloat(parts[3]);
-        airTemp.push(isNaN(at) ? null : at);
-        airHum.push(isNaN(ah) ? null : ah);
-        waterTemp.push(isNaN(wt) ? null : wt);
-        vpd.push(calcVpd(at, ah));
+        const atVal = (isNaN(at) || at <= -999) ? null : at;
+        const ahVal = (isNaN(ah) || ah <= -999) ? null : ah;
+        const wtVal = (isNaN(wt) || wt <= -999) ? null : wt;
+        airTemp.push(atVal);
+        airHum.push(ahVal);
+        waterTemp.push(wtVal);
+        vpd.push(calcVpd(atVal, ahVal));
     }
 
     return { labels, airTemp, airHum, waterTemp, vpd };
@@ -485,6 +490,13 @@ fetch("/history.csv")
     .then(text => {
         const hist = parseCSV(text);
 
+        if (hist.labels.length === 0) {
+            const el = document.getElementById("histError");
+            el.textContent = "No history data available yet.";
+            el.style.display = "";
+            return;
+        }
+
         makeChart("hist_air_temp", "Air Temp (°C)", "red",
                   hist.labels, hist.airTemp);
 
@@ -496,6 +508,11 @@ fetch("/history.csv")
 
         makeChart("hist_vpd", "VPD (kPa)", "purple",
                   hist.labels, hist.vpd);
+    })
+    .catch(err => {
+        const el = document.getElementById("histError");
+        el.textContent = "Failed to load history data: " + err.message;
+        el.style.display = "";
     });
 </script>
 )rawliteral";
