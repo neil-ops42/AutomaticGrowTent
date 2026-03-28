@@ -22,8 +22,8 @@ constexpr int  DAYLIGHT_OFFSET_SEC = 3600;    // DST
 #define PIN_RELAY_1 27      // Light relay pin
 #define PIN_RELAY_2 26      // Fan relay pin
 
-#define RELAY_ACTIVE_STATE   LOW
-#define RELAY_INACTIVE_STATE HIGH
+#define RELAY_ACTIVE_STATE   HIGH
+#define RELAY_INACTIVE_STATE LOW
 
 // ─────────────────────────────────────────────
 // LIGHTING SCHEDULE (DEFAULT FOR CUSTOM MODE)
