@@ -81,7 +81,7 @@ static void sendPage(AsyncWebServerRequest* req, const __FlashStringHelper* cont
 
 void WebServerClass::setupRoutes() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest* req){
-    sendPage(req, (const __FlashStringHelper*)HTML_INDEX);
+    sendPage(req, (const __FlashStringHelper*)HTML_INDEX, /*needsChartJs=*/true);
   });
 
   server.on("/controls", HTTP_GET, [](AsyncWebServerRequest* req){
