@@ -12,28 +12,20 @@
 #include "html_templates.h"
 #include "settings.h"
 
-// ─────────────────────────────────────────────
-// REAL DEFINITIONS OF EXTERN VARIABLES
-// (These MUST appear only once in the project)
-// ─────────────────────────────────────────────
 const char* WIFI_SSID     = "Wii";
 const char* WIFI_PASSWORD = "netc42!#";
-
 const char* NTP_SERVER    = "ca.pool.ntp.org";
 const char* HISTORY_FILE  = "/history.csv";
 
-// ─────────────────────────────────────────────
-// Function Prototypes
-// ─────────────────────────────────────────────
 void connectWiFi();
 void initTime();
 
-// ─────────────────────────────────────────────
-// SETUP
-// ─────────────────────────────────────────────
 void setup() {
     Serial.begin(115200);
     Serial.println("\n=== GrowTentAutomation Starting ===");
+
+    // Register Arduino task with watchdog
+    esp_task_wdt_add(NULL);
 
     // 1. I2C (needed by sensors)
     Wire.begin(SDA_PIN, SCL_PIN);
@@ -63,12 +55,9 @@ void setup() {
     Serial.println("System initialization complete.\n");
 }
 
-// ─────────────────────────────────────────────
-// LOOP — NON-BLOCKING SYSTEM TICK
-// ─────────────────────────────────────────────
 void loop() {
     Sensors.loop();
-    esp_task_wdt_reset();  // Pet the watchdog
+    esp_task_wdt_reset();
     Relays.loop();
     esp_task_wdt_reset();
     DataLog.loop();
@@ -79,9 +68,6 @@ void loop() {
     delay(2);
 }
 
-// ─────────────────────────────────────────────
-// Connect to WiFi
-// ─────────────────────────────────────────────
 void connectWiFi() {
     Serial.print("Connecting to WiFi: ");
     Serial.println(WIFI_SSID);
@@ -105,9 +91,6 @@ void connectWiFi() {
     }
 }
 
-// ─────────────────────────────────────────────
-// Initialize NTP time
-// ─────────────────────────────────────────────
 void initTime() {
     configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
 
