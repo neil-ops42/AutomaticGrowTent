@@ -33,9 +33,9 @@ bool SettingsClass::ensureFS() {
 void SettingsClass::begin() {
   if (!ensureFS()) return;
 
-  if (!SPIFFS.exists(PATH)) {
+  if (!SPIFFS.exists(SETTINGS_FILE)) {
     // Create file with defaults from config.h
-    File f = SPIFFS.open(PATH, FILE_WRITE);
+    File f = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
     if (f) {
       AppSettings d;
       f.println(String("mode=") + modeToStr(d.mode));
@@ -48,9 +48,9 @@ void SettingsClass::begin() {
 
 bool SettingsClass::load(AppSettings &out) {
   if (!ensureFS()) return false;
-  if (!SPIFFS.exists(PATH)) return false;
+  if (!SPIFFS.exists(SETTINGS_FILE)) return false;
 
-  File f = SPIFFS.open(PATH, FILE_READ);
+  File f = SPIFFS.open(SETTINGS_FILE, FILE_READ);
   if (!f) return false;
 
   // defaults before parse
@@ -85,7 +85,7 @@ bool SettingsClass::load(AppSettings &out) {
 bool SettingsClass::save(const AppSettings &in) {
   if (!ensureFS()) return false;
 
-  File f = SPIFFS.open(PATH, FILE_WRITE);
+  File f = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
   if (!f) return false;
 
   f.println(String("mode=") + modeToStr(in.mode));

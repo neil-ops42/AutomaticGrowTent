@@ -13,8 +13,10 @@
 #include "html_templates.h"
 #include "settings.h"
 
-const char* NTP_SERVER    = "ca.pool.ntp.org";
-const char* HISTORY_FILE  = "/history.csv";
+const char* NTP_SERVER        = "ca.pool.ntp.org";
+const char* HISTORY_FILE      = "/history.csv";
+const char* HISTORY_OLD_FILE  = "/history_old.csv";
+const char* SETTINGS_FILE     = "/settings.txt";
 
 void connectWiFi();
 void initTime();
