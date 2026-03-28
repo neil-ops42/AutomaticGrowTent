@@ -8,3 +8,7 @@ build/
 *.hex
 *.map
 /build
+
+# PlatformIO build artifacts
+.pio/
+.pioenvs/

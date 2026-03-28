@@ -1,3 +1,10 @@
+/*─────────────────────────────────────────────
+  HTML TEMPLATES — PROGMEM storage
+  NOTE: This file is ~17 KB of inline HTML/JS stored in flash (PROGMEM).
+  For future maintainability, consider migrating these templates to
+  LittleFS-served files (e.g. /www/index.html) so they can be updated
+  via OTA without reflashing the firmware.
+─────────────────────────────────────────────*/
 #include <pgmspace.h>
 #include "html_templates.h"
 
@@ -181,11 +188,13 @@ const char HTML_CONTROL[] PROGMEM = R"rawliteral(
 <p><b>Light:</b>
   <button onclick="ws.send('relay1_on')">ON</button>
   <button onclick="ws.send('relay1_off')">OFF</button>
+  <button onclick="ws.send('schedule_resume')" title="Clear manual override and return to automatic schedule">Resume Schedule</button>
 </p>
 <p><b>Fan:</b>
   <button onclick="ws.send('relay2_on')">ON</button>
   <button onclick="ws.send('relay2_off')">OFF</button>
 </p>
+<p id="overrideNotice" style="display:none;color:#c62828;">⚠ Manual override active — schedule paused until next transition or Resume.</p>
 
 <hr>
 <h4>Custom Lighting Schedule</h4>
@@ -250,10 +259,13 @@ function onWsMessage(d) {
     document.getElementById("onTime").value  = String(d.on_hour).padStart(2,"0") + ":00";
     document.getElementById("offTime").value = String(d.off_hour).padStart(2,"0") + ":00";
   }
+  if ("manual_override" in d) {
+    document.getElementById("overrideNotice").style.display = d.manual_override ? "block" : "none";
+  }
 }
 
 // Initialize with current schedule+mode
-fetch('/schedule')
+fetch('/settings')
   .then(r=>r.json())
   .then(d=>{
     document.getElementById("onTime").value  = String(d.on_hour).padStart(2,"0") + ":00";
@@ -261,10 +273,10 @@ fetch('/schedule')
     if (d.mode) setActiveMode(d.mode);
   });
 
-// Restart device via WebSocket
+// Restart device via WebSocket (requires explicit confirmation token)
 function restartDevice() {
   if (!confirm('Restart the device? It will take a few seconds to come back online.')) return;
-  ws.send('device_restart');
+  ws.send('device_restart_confirm');
   alert('Device is restarting...');
 }
 
@@ -431,10 +443,14 @@ function parseCSV(text) {
         if (parts.length < 4) continue;
 
         labels.push(parts[0]);
-        airTemp.push(parseFloat(parts[1]));
-        airHum.push(parseFloat(parts[2]));
-        waterTemp.push(parseFloat(parts[3]));
-        vpd.push(calcVpd(parseFloat(parts[1]), parseFloat(parts[2])));
+        // Empty fields represent NaN (no sensor reading); parseFloat("") → NaN
+        const at = parts[1] === "" ? NaN : parseFloat(parts[1]);
+        const ah = parts[2] === "" ? NaN : parseFloat(parts[2]);
+        const wt = parts[3] === "" ? NaN : parseFloat(parts[3]);
+        airTemp.push(isNaN(at) ? null : at);
+        airHum.push(isNaN(ah) ? null : ah);
+        waterTemp.push(isNaN(wt) ? null : wt);
+        vpd.push(calcVpd(at, ah));
     }
 
     return { labels, airTemp, airHum, waterTemp, vpd };

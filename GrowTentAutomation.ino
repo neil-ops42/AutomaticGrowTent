@@ -1,5 +1,6 @@
 #include <Arduino.h>
 #include <WiFi.h>
+#include <Wire.h>
 #include <time.h>
 #include <esp_task_wdt.h>
 
@@ -41,7 +42,7 @@ void setup() {
     // 4. GPIO setup
     pinMode(ONE_WIRE_BUS, INPUT_PULLUP);
 
-    // 5. Storage (mounts SPIFFS once)
+    // 5. Storage (mounts LittleFS once)
     Settings.begin();
 
     // 6. Sensors (now Wire is ready)
@@ -78,6 +79,13 @@ void loop() {
     OLED.loop();
     esp_task_wdt_reset();
     WebServer.loop();
+
+    // Handle deferred restart request (avoids delay() inside async handlers)
+    if (WebServer.restartRequested) {
+        delay(500);
+        ESP.restart();
+    }
+
     delay(2);
 }
 

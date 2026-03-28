@@ -8,6 +8,10 @@
 extern const char* WIFI_SSID;
 extern const char* WIFI_PASSWORD;
 extern const char* NTP_SERVER;
+
+// HTTP Basic Auth credentials (defined in secrets.h)
+extern const char* WEB_AUTH_USERNAME;
+extern const char* WEB_AUTH_PASSWORD;
 extern const char* HISTORY_FILE;
 extern const char* HISTORY_OLD_FILE;
 extern const char* SETTINGS_FILE;

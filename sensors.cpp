@@ -93,9 +93,9 @@ void SensorsClass::readWater()
     } else {
         current.waterTemp = t;
     }
-    current.lastUpdate = millis();
+    current.lastUpdate = now;
     waiting = false;
-    lastWaterRead = millis(); // interval starts after full read cycle completes
+    lastWaterRead = now; // interval starts after full read cycle completes
 }
 
 // ─────────────────────────────────────────────

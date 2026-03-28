@@ -4,7 +4,7 @@
 
 #include <Arduino.h>
 #include <FS.h>
-#include <SPIFFS.h>
+#include <LittleFS.h>
 #include "relays.h"   // for GrowMode
 #include "config.h"   // for LIGHT_ON_HOUR / LIGHT_OFF_HOUR
 

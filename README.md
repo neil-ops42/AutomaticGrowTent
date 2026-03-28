@@ -15,9 +15,9 @@ An ESP32-based automation system for monitoring and controlling a small indoor g
 | **Web Dashboard** | Responsive async web server with pages for live sensor readings, relay control, historical charts, and data history |
 | **WebSocket Updates** | Real-time push of relay & sensor state to all connected browsers |
 | **OLED Display** | 128×64 SSD1306 OLED shows current readings, relay states, and a Wi-Fi signal-strength icon |
-| **Data Logging** | Sensor readings written to **SPIFFS** (`/history.csv`) every 60 seconds; when the file exceeds 100 KB it is archived to `/history_old.csv` and a fresh log is started |
+| **Data Logging** | Sensor readings written to **LittleFS** (`/history.csv`) every 60 seconds; when the file exceeds 100 KB it is archived to `/history_old.csv` and a fresh log is started |
 | **OTA Updates** | Firmware updates over Wi-Fi via **ElegantOTA** — no USB cable required after initial flash |
-| **Persistent Settings** | Grow mode and custom schedule saved to SPIFFS and restored on reboot; downloadable / uploadable via web endpoints |
+| **Persistent Settings** | Grow mode and custom schedule saved to LittleFS and restored on reboot; downloadable / uploadable via web endpoints |
 | **NTP Time Sync** | Automatic clock synchronisation from `ca.pool.ntp.org` with configurable UTC offset and DST |
 | **Watchdog** | Hardware watchdog timer keeps the system responsive; resets if a module stalls |
 
@@ -52,14 +52,15 @@ An ESP32-based automation system for monitoring and controlling a small indoor g
 growtentautomation/
 ├── GrowTentAutomation.ino   # Main sketch — setup(), loop(), WiFi, NTP
 ├── config.h                 # Pin definitions, timing constants, defaults
-├── secrets.h.example        # Template for WiFi credentials (copy → secrets.h)
+├── secrets.h.example        # Template for WiFi credentials + web auth (copy → secrets.h)
 ├── sensors.h / .cpp         # SHT4x + DS18B20 reading logic
 ├── relays.h / .cpp          # Relay control, grow-mode scheduling
-├── settings.h / .cpp        # Persistent settings (SPIFFS load/save)
-├── datalog.h / .cpp         # CSV data logger (SPIFFS)
+├── settings.h / .cpp        # Persistent settings (LittleFS load/save)
+├── datalog.h / .cpp         # CSV data logger (LittleFS)
 ├── ui_oled.h / .cpp         # OLED display rendering + WiFi icon
 ├── webserver.h / .cpp       # Async HTTP server + WebSocket handler
 ├── html_templates.h / .cpp  # HTML pages stored in PROGMEM
+├── platformio.ini           # PlatformIO project config
 ├── LICENSE                  # GNU GPL v2
 └── .gitignore
 ```
@@ -70,7 +71,7 @@ growtentautomation/
 
 ### Prerequisites
 
-- [Arduino IDE](https://www.arduino.cc/en/software) **2.x** (or PlatformIO)
+- [Arduino IDE](https://www.arduino.cc/en/software) **2.x** (or PlatformIO — see `platformio.ini`)
 - **ESP32 board package** installed via Boards Manager
 - The following Arduino libraries (install via Library Manager):
   - `Adafruit SHT4x`
@@ -79,6 +80,7 @@ growtentautomation/
   - `DallasTemperature`
   - `ESPAsyncWebServer` + `AsyncTCP`
   - `ElegantOTA`
+  - `ArduinoJson`
 
 ### Installation
 
@@ -95,11 +97,13 @@ cd growtentautomation
 cp secrets.h.example secrets.h
 ```
 
-   Open `secrets.h` and replace the placeholders with your Wi-Fi credentials:
+   Open `secrets.h` and replace the placeholders with your Wi-Fi credentials and a web auth password:
 
    ```cpp
-const char* WIFI_SSID     = "YourNetworkName";
-const char* WIFI_PASSWORD = "YourPassword";
+const char* WIFI_SSID         = "YourNetworkName";
+const char* WIFI_PASSWORD     = "YourPassword";
+const char* WEB_AUTH_USERNAME = "admin";       // used for /update, /settings/reset, /settings/restore
+const char* WEB_AUTH_PASSWORD = "changeme";    // ← change before deploying!
 ```
 
 3. **Review `config.h`** — adjust timezone offsets, pin assignments, or default light schedule if needed.
@@ -107,6 +111,23 @@ const char* WIFI_PASSWORD = "YourPassword";
 4. **Open `GrowTentAutomation.ino`** in the Arduino IDE, select your ESP32 board and port, then **Upload**.
 
 5. **Open Serial Monitor** at 115200 baud to see the assigned IP address, then navigate to it in a browser.
+
+---
+
+## Wiring
+
+> **TODO:** A full wiring diagram (Fritzing / KiCad) will be added here in a future update.
+
+Below is a quick text summary of the key connections:
+
+```
+ESP32 GPIO 21 (SDA) ──── SHT4x SDA  ──── SSD1306 SDA
+ESP32 GPIO 22 (SCL) ──── SHT4x SCL  ──── SSD1306 SCL
+ESP32 GPIO 14       ──── DS18B20 Data (4.7 kΩ pull-up to 3.3 V)
+ESP32 GPIO 27       ──── Relay module IN1  (Light)
+ESP32 GPIO 26       ──── Relay module IN2  (Fan)
+3.3 V / GND         ──── Sensor VCC/GND, relay VCC/GND
+```
 
 ---
 
@@ -121,9 +142,11 @@ Once running, the ESP32 hosts a web server on port **80** with the following pag
 | Charts | `/charts` | Graphical view of logged sensor data |
 | History | `/history` | Raw CSV data download / view |
 | OTA Update | `/update` | Upload new firmware binaries over Wi-Fi |
-| Settings Backup | `/settings/backup` | `GET` — download `settings.txt` as `settings_backup.txt` |
-| Settings Restore | `/settings/restore` | `POST` — upload a settings file to overwrite `settings.txt` and reload |
+| Settings Backup | `/settings/backup` | `GET` — download `settings.txt` as `settings_backup.txt` (requires auth) |
+| Settings Restore | `/settings/restore` | `POST` — upload a settings file to overwrite `settings.txt` and reload (requires auth) |
 | Archived Log | `/history_old.csv` | `GET` — download the previous log archived during the last rotation |
+
+> **Security note:** The `/update`, `/settings/reset`, `/settings/restore`, and `/settings/backup` endpoints are protected by HTTP Basic Authentication. Credentials are configured in `secrets.h` (see `secrets.h.example`).
 
 Real-time relay and sensor state is pushed to all connected clients over a **WebSocket** at `/ws`.
 
@@ -143,6 +166,14 @@ Key constants in `config.h`:
 | `AIR_SENSOR_INTERVAL_MS` | `5000` | SHT4x polling interval |
 | `WATER_SENSOR_INTERVAL_MS` | `5000` | DS18B20 polling interval |
 | `MAX_LOG_BYTES` | `102400` | Max `/history.csv` size before log rotation (100 KB) |
+
+> **Fan control:** The fan relay (Relay 2) is currently manual-only — it does not follow a schedule. Toggle it from the Controls page via WebSocket. Automatic fan scheduling is a planned future enhancement.
+
+---
+
+## PlatformIO
+
+A `platformio.ini` is included for use with [PlatformIO](https://platformio.org/). Open the project folder in VS Code with the PlatformIO extension and it will pick up the configuration automatically. All library dependencies are declared in the ini file; run **PIO: Build** to fetch and compile.
 
 ---
 
