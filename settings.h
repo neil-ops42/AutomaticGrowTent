@@ -25,7 +25,6 @@ public:
   static GrowMode strToMode(const String& s);
 
 private:
-  const char* PATH = "/settings.txt";
   bool ensureFS();
 };
 

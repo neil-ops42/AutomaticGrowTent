@@ -42,6 +42,29 @@ void DataLogClass::loop()
 }
 
 // ─────────────────────────────────────────────
+// Archive current log and start a fresh one
+// ─────────────────────────────────────────────
+void DataLogClass::rotateLog()
+{
+    // Remove any previous archive so rename succeeds
+    if (SPIFFS.exists(HISTORY_OLD_FILE)) {
+        SPIFFS.remove(HISTORY_OLD_FILE);
+    }
+
+    // Archive the current log
+    SPIFFS.rename(HISTORY_FILE, HISTORY_OLD_FILE);
+
+    // Create a fresh log with just the CSV header
+    File hdr = SPIFFS.open(HISTORY_FILE, FILE_WRITE);
+    if (hdr) {
+        hdr.println("time,airTemp,airHum,waterTemp");
+        hdr.close();
+    }
+
+    Serial.println("Log rotated — old data archived to /history_old.csv");
+}
+
+// ─────────────────────────────────────────────
 // Append one CSV record
 // ─────────────────────────────────────────────
 void DataLogClass::writeEntry(const SensorData& data)
@@ -53,21 +76,14 @@ void DataLogClass::writeEntry(const SensorData& data)
     char ts[32];
     strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
 
-    // Rotate log if it exceeds ~100 KB to prevent filling SPIFFS
-    static const size_t MAX_LOG_BYTES = 100UL * 1024UL;
+    // Rotate log if it exceeds the size limit to prevent filling SPIFFS
     {
         File check = SPIFFS.open(HISTORY_FILE, FILE_READ);
         if (check) {
-            if (check.size() >= MAX_LOG_BYTES) {
-                check.close();
-                SPIFFS.remove(HISTORY_FILE);
-                File hdr = SPIFFS.open(HISTORY_FILE, FILE_WRITE);
-                if (hdr) {
-                    hdr.println("time,airTemp,airHum,waterTemp");
-                    hdr.close();
-                }
-            } else {
-                check.close();
+            bool overLimit = check.size() >= MAX_LOG_BYTES;
+            check.close();
+            if (overLimit) {
+                rotateLog();
             }
         }
     }

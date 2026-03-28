@@ -15,6 +15,7 @@ public:
 
 private:
     void writeEntry(const SensorData& data);
+    void rotateLog();
     unsigned long lastLog = 0;
 };
 

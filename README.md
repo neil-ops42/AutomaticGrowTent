@@ -15,9 +15,9 @@ An ESP32-based automation system for monitoring and controlling a small indoor g
 | **Web Dashboard** | Responsive async web server with pages for live sensor readings, relay control, historical charts, and data history |
 | **WebSocket Updates** | Real-time push of relay & sensor state to all connected browsers |
 | **OLED Display** | 128×64 SSD1306 OLED shows current readings, relay states, and a Wi-Fi signal-strength icon |
-| **Data Logging** | Sensor readings written to **SPIFFS** (`/history.csv`) every 60 seconds |
+| **Data Logging** | Sensor readings written to **SPIFFS** (`/history.csv`) every 60 seconds; when the file exceeds 100 KB it is archived to `/history_old.csv` and a fresh log is started |
 | **OTA Updates** | Firmware updates over Wi-Fi via **ElegantOTA** — no USB cable required after initial flash |
-| **Persistent Settings** | Grow mode and custom schedule saved to SPIFFS and restored on reboot |
+| **Persistent Settings** | Grow mode and custom schedule saved to SPIFFS and restored on reboot; downloadable / uploadable via web endpoints |
 | **NTP Time Sync** | Automatic clock synchronisation from `ca.pool.ntp.org` with configurable UTC offset and DST |
 | **Watchdog** | Hardware watchdog timer keeps the system responsive; resets if a module stalls |
 
@@ -121,6 +121,9 @@ Once running, the ESP32 hosts a web server on port **80** with the following pag
 | Charts | `/charts` | Graphical view of logged sensor data |
 | History | `/history` | Raw CSV data download / view |
 | OTA Update | `/update` | Upload new firmware binaries over Wi-Fi |
+| Settings Backup | `/settings/backup` | `GET` — download `settings.txt` as `settings_backup.txt` |
+| Settings Restore | `/settings/restore` | `POST` — upload a settings file to overwrite `settings.txt` and reload |
+| Archived Log | `/history_old.csv` | `GET` — download the previous log archived during the last rotation |
 
 Real-time relay and sensor state is pushed to all connected clients over a **WebSocket** at `/ws`.
 
@@ -139,6 +142,7 @@ Key constants in `config.h`:
 | `LOG_INTERVAL_MS` | `60000` | Sensor log interval (1 min) |
 | `AIR_SENSOR_INTERVAL_MS` | `5000` | SHT4x polling interval |
 | `WATER_SENSOR_INTERVAL_MS` | `5000` | DS18B20 polling interval |
+| `MAX_LOG_BYTES` | `102400` | Max `/history.csv` size before log rotation (100 KB) |
 
 ---
 

@@ -102,8 +102,8 @@ void WebServerClass::setupRoutes() {
   });
   
   server.on("/settings/reset", HTTP_POST, [](AsyncWebServerRequest* req){
-    if (SPIFFS.exists("/settings.txt")) {
-      SPIFFS.remove("/settings.txt");
+    if (SPIFFS.exists(SETTINGS_FILE)) {
+      SPIFFS.remove(SETTINGS_FILE);
     }
     req->send(200, "application/json", "{\"ok\":true}");
     delay(500);
@@ -203,6 +203,51 @@ Settings.save(s);
     });
 
   // NOTE: /update is handled by ElegantOTA's own handler (default UI).
+
+  // GET /settings/backup — download current settings as a file attachment
+  server.on("/settings/backup", HTTP_GET, [](AsyncWebServerRequest* req){
+    if (!SPIFFS.exists(SETTINGS_FILE)) {
+      req->send(404, "application/json", "{\"error\":\"settings file not found\"}");
+      return;
+    }
+    AsyncWebServerResponse* resp = req->beginResponse(SPIFFS, SETTINGS_FILE, "text/plain");
+    resp->addHeader("Content-Disposition", "attachment; filename=\"settings_backup.txt\"");
+    req->send(resp);
+  });
+
+  // POST /settings/restore — upload a settings file, write it to SPIFFS, and reload
+  server.on("/settings/restore", HTTP_POST,
+    [](AsyncWebServerRequest* req) {
+      AppSettings s;
+      if (!Settings.load(s)) {
+        req->send(500, "application/json", "{\"error\":\"settings saved but could not be parsed\"}");
+        return;
+      }
+      Relays.state.mode = s.mode;
+      Relays.setCustomSchedule(s.on_hour, s.off_hour);
+      Relays.loop();
+      req->send(200, "application/json", "{\"ok\":true}");
+    },
+    [](AsyncWebServerRequest* req, const String& /*filename*/, size_t index, uint8_t* data, size_t len, bool final) {
+      if (index == 0) {
+        req->_tempFile = SPIFFS.open(SETTINGS_FILE, FILE_WRITE);
+      }
+      if (req->_tempFile) {
+        req->_tempFile.write(data, len);
+      }
+      if (final && req->_tempFile) {
+        req->_tempFile.close();
+      }
+    });
+
+  // GET /history_old.csv — serve the archived log created by log rotation
+  server.on("/history_old.csv", HTTP_GET, [](AsyncWebServerRequest* req){
+    if (!SPIFFS.exists(HISTORY_OLD_FILE)) {
+      req->send(404, "application/json", "{\"error\":\"no archived log available\"}");
+      return;
+    }
+    req->send(SPIFFS, HISTORY_OLD_FILE, "text/csv");
+  });
 }
 
 void WebServerClass::setupWebSocket() {
