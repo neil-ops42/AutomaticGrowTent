@@ -126,9 +126,11 @@ let chartVpd = new Chart(document.getElementById("chart_vpd"), {
 });
 
 function calcVpd(tempC, rh) {
-  if (!isFinite(tempC) || !isFinite(rh) || rh < 0 || rh > 100) return null;
+  if (!isFinite(tempC) || !isFinite(rh)) return null;
+  const rhPercent = (rh >= 0 && rh <= 1) ? (rh * 100) : rh;
+  if (rhPercent < 0 || rhPercent > 100) return null;
   const svp = 0.6108 * Math.exp((17.27 * tempC) / (tempC + 237.3));
-  const vpd = svp * (1 - (rh / 100));
+  const vpd = svp * (1 - (rhPercent / 100));
   return Math.round(vpd * 1000) / 1000;
 }
 
@@ -140,15 +142,17 @@ setInterval(() => {
     document.getElementById("time").innerText = d.time;
 
     const vpd = calcVpd(parseFloat(d.air_temp), parseFloat(d.air_humidity));
-    const label = d.time || "";
-    const MAX_POINTS = 300;
-    chartVpd.data.labels.push(label);
-    chartVpd.data.datasets[0].data.push(vpd);
-    if (chartVpd.data.labels.length > MAX_POINTS) {
-      chartVpd.data.labels.shift();
-      chartVpd.data.datasets[0].data.shift();
+    if (vpd !== null) {
+      const label = d.time || "";
+      const MAX_VPD_POINTS = 300;
+      chartVpd.data.labels.push(label);
+      chartVpd.data.datasets[0].data.push(vpd);
+      if (chartVpd.data.labels.length > MAX_VPD_POINTS) {
+        chartVpd.data.labels.shift();
+        chartVpd.data.datasets[0].data.shift();
+      }
+      chartVpd.update();
     }
-    chartVpd.update();
   });
 }, 2000);
 </script>
