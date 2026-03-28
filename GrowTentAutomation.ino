@@ -1,6 +1,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <time.h>
+#include <esp_task_wdt.h>
 
 #include "config.h"
 #include "sensors.h"
@@ -57,12 +58,15 @@ void setup() {
 // ─────────────────────────────────────────────
 void loop() {
     Sensors.loop();
+    esp_task_wdt_reset();  // Pet the watchdog
     Relays.loop();
+    esp_task_wdt_reset();
     DataLog.loop();
+    esp_task_wdt_reset();
     OLED.loop();
+    esp_task_wdt_reset();
     WebServer.loop();
-
-    delay(2); // Keep system responsive without blocking
+    delay(2);
 }
 
 // ─────────────────────────────────────────────
