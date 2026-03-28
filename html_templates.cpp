@@ -303,12 +303,22 @@ const char HTML_CHARTS[] PROGMEM = R"rawliteral(
 <canvas id="chart_air_temp" height="120"></canvas>
 <canvas id="chart_air_hum"  height="120"></canvas>
 <canvas id="chart_water"    height="120"></canvas>
+<canvas id="chart_vpd"      height="120"></canvas>
 
 <script>
 // Chart.js datasets
 let airTempData = { labels: [], data: [] };
 let airHumData  = { labels: [], data: [] };
 let waterData   = { labels: [], data: [] };
+
+function calcVpd(tempC, rh) {
+    if (!isFinite(tempC) || !isFinite(rh)) return null;
+    const rhPercent = (rh >= 0 && rh <= 1) ? (rh * 100) : rh;
+    if (rhPercent < 0 || rhPercent > 100) return null;
+    const svp = 0.6108 * Math.exp((17.27 * tempC) / (tempC + 237.3));
+    const vpd = svp * (1 - (rhPercent / 100));
+    return Math.round(vpd * 1000) / 1000;
+}
 
 function makeChart(id, label, color) {
     return new Chart(document.getElementById(id), {
@@ -334,6 +344,7 @@ function makeChart(id, label, color) {
 let chartAirTemp = makeChart("chart_air_temp", "Air Temp (°C)", "red");
 let chartAirHum  = makeChart("chart_air_hum",  "Air Humidity (%)", "blue");
 let chartWater   = makeChart("chart_water",    "Water Temp (°C)", "green");
+let chartVpd     = makeChart("chart_vpd",      "VPD (kPa)", "purple");
 
 // Receive sensor data via the shared header WebSocket
 function onWsMessage(j) {
@@ -366,6 +377,17 @@ function onWsMessage(j) {
         chartWater.data.datasets[0].data.shift();
     }
     chartWater.update();
+
+    const vpd = calcVpd(parseFloat(j.air_temp), parseFloat(j.air_humidity));
+    if (vpd !== null) {
+        chartVpd.data.labels.push(t);
+        chartVpd.data.datasets[0].data.push(vpd);
+        if (chartVpd.data.labels.length > MAX_POINTS) {
+            chartVpd.data.labels.shift();
+            chartVpd.data.datasets[0].data.shift();
+        }
+        chartVpd.update();
+    }
 };
 </script>
 )rawliteral";
@@ -381,9 +403,19 @@ const char HTML_HISTORY[] PROGMEM = R"rawliteral(
 <canvas id="hist_air_temp" height="120"></canvas>
 <canvas id="hist_air_hum"  height="120"></canvas>
 <canvas id="hist_water"    height="120"></canvas>
+<canvas id="hist_vpd"      height="120"></canvas>
 
 <script>
 // Utility: parse CSV into arrays
+function calcVpd(tempC, rh) {
+    if (!isFinite(tempC) || !isFinite(rh)) return null;
+    const rhPercent = (rh >= 0 && rh <= 1) ? (rh * 100) : rh;
+    if (rhPercent < 0 || rhPercent > 100) return null;
+    const svp = 0.6108 * Math.exp((17.27 * tempC) / (tempC + 237.3));
+    const vpd = svp * (1 - (rhPercent / 100));
+    return Math.round(vpd * 1000) / 1000;
+}
+
 function parseCSV(text) {
     const lines = text.trim().split("\n");
 
@@ -392,6 +424,7 @@ function parseCSV(text) {
     const airTemp = [];
     const airHum = [];
     const waterTemp = [];
+    const vpd = [];
 
     for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(",");
@@ -401,9 +434,10 @@ function parseCSV(text) {
         airTemp.push(parseFloat(parts[1]));
         airHum.push(parseFloat(parts[2]));
         waterTemp.push(parseFloat(parts[3]));
+        vpd.push(calcVpd(parseFloat(parts[1]), parseFloat(parts[2])));
     }
 
-    return { labels, airTemp, airHum, waterTemp };
+    return { labels, airTemp, airHum, waterTemp, vpd };
 }
 
 function makeChart(id, label, color, labels, data) {
@@ -443,6 +477,9 @@ fetch("/history.csv")
 
         makeChart("hist_water", "Water Temp (°C)", "green",
                   hist.labels, hist.waterTemp);
+
+        makeChart("hist_vpd", "VPD (kPa)", "purple",
+                  hist.labels, hist.vpd);
     });
 </script>
 )rawliteral";
