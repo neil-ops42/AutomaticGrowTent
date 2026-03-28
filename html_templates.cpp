@@ -106,10 +106,10 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
 <script>
 setInterval(() => {
   fetch('/data').then(r => r.json()).then(d => {
-    air.innerText = d.air_temp;
-    hum.innerText = d.air_humidity;
-    water.innerText = d.water_temp;
-    time.innerText = d.time;
+    document.getElementById("air").innerText = d.air_temp;
+    document.getElementById("hum").innerText = d.air_humidity;
+    document.getElementById("water").innerText = d.water_temp;
+    document.getElementById("time").innerText = d.time;
   });
 }, 2000);
 </script>
@@ -276,16 +276,30 @@ function onWsMessage(j) {
     let t = j.time;
 
     // Append data
+    const MAX_POINTS = 300;
+    
     chartAirTemp.data.labels.push(t);
     chartAirTemp.data.datasets[0].data.push(j.air_temp);
+    if (chartAirTemp.data.labels.length > MAX_POINTS) {
+        chartAirTemp.data.labels.shift();
+        chartAirTemp.data.datasets[0].data.shift();
+    }
     chartAirTemp.update();
 
     chartAirHum.data.labels.push(t);
     chartAirHum.data.datasets[0].data.push(j.air_humidity);
+    if (chartAirHum.data.labels.length > MAX_POINTS) {
+        chartAirHum.data.labels.shift();
+        chartAirHum.data.datasets[0].data.shift();
+    }    
     chartAirHum.update();
 
     chartWater.data.labels.push(t);
     chartWater.data.datasets[0].data.push(j.water_temp);
+    if (chartWater.data.labels.length > MAX_POINTS) {
+        chartWater.data.labels.shift();
+        chartWater.data.datasets[0].data.shift();
+    }
     chartWater.update();
 };
 </script>

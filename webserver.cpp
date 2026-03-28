@@ -172,6 +172,11 @@ void WebServerClass::setupRoutes() {
     Relays.state.mode = MODE_CUSTOM; // switch to custom
     Relays.loop();                   // apply immediately
     WebServer.broadcastRelayState(); // notify clients
+    AppSettings s;
+s.mode = MODE_CUSTOM;
+s.on_hour = (uint8_t)onH;
+s.off_hour = (uint8_t)offH;
+Settings.save(s);
 
     req->send(200, "application/json", "{\"ok\":true}");
   });
