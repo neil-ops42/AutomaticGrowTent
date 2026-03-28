@@ -15,9 +15,10 @@ static inline String jnum(float v) { return isnan(v) ? "null" : String(v, 1); }
 // Server Setup & WebSocket Logic
 // =====================================================================
 void WebServerClass::begin() {
-  // FS is mounted by DataLog.begin(); but ensure it's mounted if page hits early
-  if (!SPIFFS.begin(true)) {
-    Serial.println("SPIFFS mount failed in WebServer.begin()");
+  // Don't mount FS here - DataLog.begin() already did it
+  if (!SPIFFS.exists("/")) {
+    Serial.println("SPIFFS not ready - ensure DataLog initialized first");
+    // Continue anyway, routes will handle gracefully
   }
 
   setupRoutes();
