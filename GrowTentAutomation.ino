@@ -65,7 +65,7 @@ void setup() {
 
 void loop() {
     // WiFi reconnection check (every 30 seconds)
-    static unsigned long lastWiFiCheck = 0;
+    static unsigned long lastWiFiCheck = millis();
     unsigned long now = millis();
     if (now - lastWiFiCheck >= 30000) {
         lastWiFiCheck = now;
@@ -85,6 +85,7 @@ void loop() {
     OLED.loop();
     esp_task_wdt_reset();
     WebServer.loop();
+    esp_task_wdt_reset();
 
     // Handle deferred restart request (avoids delay() inside async handlers)
     if (WebServer.restartRequested) {

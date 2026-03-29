@@ -1,6 +1,7 @@
 #include "relays.h"
 #include <time.h>
 #include "settings.h"
+#include "sensors.h"
 
 RelaysClass Relays;
 
@@ -36,6 +37,7 @@ void RelaysClass::begin()
 void RelaysClass::loop()
 {
     updateLightSchedule();
+    updateFanAuto();
 }
 
 // ─────────────────────────────────────────────
@@ -105,6 +107,7 @@ void RelaysClass::setRelay(uint8_t id, bool stateIn, bool fromSchedule)
 
     if (id == 2) {
         state.fan = stateIn;
+        if (!fromSchedule) state.manualFanOverride = true;
         digitalWrite(PIN_RELAY_2, stateIn ? RELAY_ACTIVE_STATE : RELAY_INACTIVE_STATE);
         return;
     }
@@ -153,4 +156,34 @@ void RelaysClass::getCustomSchedule(uint8_t& onH, uint8_t& offH)
 {
     onH  = customOnHour;
     offH = customOffHour;
+}
+
+// ─────────────────────────────────────────────
+// Temperature-based automatic fan control
+// Uses hysteresis to prevent rapid cycling.
+// Auto-clears manual fan override at each transition boundary.
+// ─────────────────────────────────────────────
+void RelaysClass::updateFanAuto()
+{
+    if (!state.autoFan) return;
+
+    SensorData s = Sensors.getData();
+    if (isnan(s.airTemp)) return;  // No valid reading — leave fan unchanged
+
+    if (state.manualFanOverride) {
+        // Auto-clear override when temperature crosses transition threshold
+        bool shouldBeOn = (s.airTemp >= FAN_ON_TEMP_C);
+        bool shouldBeOff = (s.airTemp <= FAN_OFF_TEMP_C);
+        if ((state.fan && shouldBeOff) || (!state.fan && shouldBeOn)) {
+            state.manualFanOverride = false;
+        } else {
+            return;  // Manual override still active — do not touch
+        }
+    }
+
+    if (!state.fan && s.airTemp >= FAN_ON_TEMP_C) {
+        setRelay(2, true, /*fromSchedule=*/ true);
+    } else if (state.fan && s.airTemp <= FAN_OFF_TEMP_C) {
+        setRelay(2, false, /*fromSchedule=*/ true);
+    }
 }

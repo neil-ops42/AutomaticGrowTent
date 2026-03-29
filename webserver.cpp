@@ -124,6 +124,7 @@ void WebServerClass::setupRoutes() {
   });
 
   server.on("/history/reset", HTTP_POST, [](AsyncWebServerRequest* req){
+    if (requireAuth(req)) return;
     bool ok = true;
 
     // Remove existing file
@@ -165,10 +166,10 @@ void WebServerClass::setupRoutes() {
   });
 
   // Relay REST fallbacks — POST to avoid GET side-effects / CSRF
-  server.on("/relay1/on",  HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(1, true);  broadcastRelayState(); req->send(200,"text/plain","Light ON"); });
-  server.on("/relay1/off", HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(1, false); broadcastRelayState(); req->send(200,"text/plain","Light OFF"); });
-  server.on("/relay2/on",  HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(2, true);  broadcastRelayState(); req->send(200,"text/plain","Fan ON"); });
-  server.on("/relay2/off", HTTP_POST, [this](AsyncWebServerRequest* req){ Relays.setRelay(2, false); broadcastRelayState(); req->send(200,"text/plain","Fan OFF"); });
+  server.on("/relay1/on",  HTTP_POST, [this](AsyncWebServerRequest* req){ if (requireAuth(req)) return; Relays.setRelay(1, true);  broadcastRelayState(); req->send(200,"text/plain","Light ON"); });
+  server.on("/relay1/off", HTTP_POST, [this](AsyncWebServerRequest* req){ if (requireAuth(req)) return; Relays.setRelay(1, false); broadcastRelayState(); req->send(200,"text/plain","Light OFF"); });
+  server.on("/relay2/on",  HTTP_POST, [this](AsyncWebServerRequest* req){ if (requireAuth(req)) return; Relays.setRelay(2, true);  broadcastRelayState(); req->send(200,"text/plain","Fan ON"); });
+  server.on("/relay2/off", HTTP_POST, [this](AsyncWebServerRequest* req){ if (requireAuth(req)) return; Relays.setRelay(2, false); broadcastRelayState(); req->send(200,"text/plain","Fan OFF"); });
 
   // POST /schedule => on=HH&off=HH
   server.on("/schedule", HTTP_POST, [](AsyncWebServerRequest* req){
@@ -180,15 +181,10 @@ void WebServerClass::setupRoutes() {
     int offH = req->getParam("off", true)->value().toInt();
     if (onH  < 0) onH  = 0; if (onH  > 23) onH  = 23;
     if (offH < 0) offH = 0; if (offH > 23) offH = 23;
-    Relays.setCustomSchedule((uint8_t)onH, (uint8_t)offH);
-    Relays.state.mode = MODE_CUSTOM; // switch to custom
+    Relays.state.mode = MODE_CUSTOM; // switch to custom first
+    Relays.setCustomSchedule((uint8_t)onH, (uint8_t)offH); // this saves settings internally
     Relays.loop();                   // apply immediately
     WebServer.broadcastRelayState(); // notify clients
-    AppSettings s;
-    s.mode     = MODE_CUSTOM;
-    s.on_hour  = (uint8_t)onH;
-    s.off_hour = (uint8_t)offH;
-    Settings.save(s);
 
     req->send(200, "application/json", "{\"ok\":true}");
   });
@@ -261,6 +257,9 @@ void WebServerClass::setupRoutes() {
 }
 
 void WebServerClass::setupWebSocket() {
+  // NOTE: WebSocket connections are not authenticated. For sensitive operations
+  // (settings reset, firmware update), use the authenticated HTTP endpoints instead.
+  // WebSocket commands are convenience shortcuts for the local network UI.
   ws.onEvent([this](AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len){
     if (type == WS_EVT_CONNECT) {
       // Send current state directly to the newly connected client
