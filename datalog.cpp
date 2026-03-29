@@ -7,11 +7,7 @@ DataLogClass DataLog;
 // ─────────────────────────────────────────────
 void DataLogClass::begin()
 {
-    if (!LittleFS.begin(false))
-    {
-        Serial.println("LittleFS not mounted! Call Settings.begin() first.");
-        return;
-    }
+    // LittleFS is already mounted by Settings.begin()
 
     // Ensure the CSV file exists and has a header
     if (!LittleFS.exists(HISTORY_FILE))

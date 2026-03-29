@@ -56,31 +56,37 @@ const char HTML_HEADER[] PROGMEM = R"rawliteral(
 <hr>
 
 <script>
-let ws = new WebSocket("ws://" + location.host + "/ws");
+let ws;
+function connectWS() {
+    ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
 
-ws.onmessage = (event) => {
-    let j;
-    try { j = JSON.parse(event.data); } catch(e) { return; }
+    ws.onmessage = (event) => {
+        let j;
+        try { j = JSON.parse(event.data); } catch(e) { return; }
 
-    // Sensor data (from periodic broadcast)
-    if (j.air_temp !== undefined)
-        document.getElementById("sb_air").innerText = j.air_temp;
+        // Sensor data (from periodic broadcast)
+        if (j.air_temp !== undefined)
+            document.getElementById("sb_air").innerText = j.air_temp;
 
-    if (j.air_humidity !== undefined)
-        document.getElementById("sb_hum").innerText = j.air_humidity;
+        if (j.air_humidity !== undefined)
+            document.getElementById("sb_hum").innerText = j.air_humidity;
 
-    if (j.water_temp !== undefined)
-        document.getElementById("sb_water").innerText = j.water_temp;
+        if (j.water_temp !== undefined)
+            document.getElementById("sb_water").innerText = j.water_temp;
 
-    // Relay/mode state (from broadcastRelayState)
-    if ("relay1" in j) {
-        document.getElementById("lightIcon").className = "icon " + (j.relay1 ? "on" : "off");
-        document.getElementById("fanIcon").className   = "icon " + (j.relay2 ? "on" : "off");
-    }
+        // Relay/mode state (from broadcastRelayState)
+        if ("relay1" in j) {
+            document.getElementById("lightIcon").className = "icon " + (j.relay1 ? "on" : "off");
+            document.getElementById("fanIcon").className   = "icon " + (j.relay2 ? "on" : "off");
+        }
 
-    // Dispatch to page-level handler if defined
-    if (typeof onWsMessage === "function") onWsMessage(j);
-};
+        // Dispatch to page-level handler if defined
+        if (typeof onWsMessage === "function") onWsMessage(j);
+    };
+
+    ws.onclose = () => { setTimeout(connectWS, 3000); };
+}
+connectWS();
 </script>
 
 <script>
@@ -517,10 +523,4 @@ fetch("/history.csv")
 </script>
 )rawliteral";
 
-/*─────────────────────────────────────────────
-  OTA (text only; ElegantOTA default at /update)
-─────────────────────────────────────────────*/
-const char HTML_OTA[] PROGMEM = R"rawliteral(
-<h2>OTA Update</h2>
-<p>Use <code>/update</code> to access ElegantOTA (default UI).</p>
-)rawliteral";
+

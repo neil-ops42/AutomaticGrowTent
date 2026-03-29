@@ -263,7 +263,23 @@ void WebServerClass::setupRoutes() {
 void WebServerClass::setupWebSocket() {
   ws.onEvent([this](AsyncWebSocket* server, AsyncWebSocketClient* client, AwsEventType type, void* arg, uint8_t* data, size_t len){
     if (type == WS_EVT_CONNECT) {
-      broadcastRelayState(); // navbar + controls get initial state
+      // Send current state directly to the newly connected client
+      RelayState r = Relays.getState();
+      uint8_t onH, offH;
+      Relays.getCustomSchedule(onH, offH);
+      const char* modeStr = r.mode == MODE_VEG    ? "veg"
+                          : r.mode == MODE_FLOWER  ? "flower"
+                                                   : "custom";
+      StaticJsonDocument<128> doc;
+      doc["relay1"]          = r.light;
+      doc["relay2"]          = r.fan;
+      doc["mode"]            = modeStr;
+      doc["on_hour"]         = onH;
+      doc["off_hour"]        = offH;
+      doc["manual_override"] = r.manualLightOverride;
+      String json;
+      serializeJson(doc, json);
+      client->text(json);
       return;
     }
     if (type == WS_EVT_DATA) {

@@ -75,7 +75,7 @@ bool RelaysClass::isLightScheduledOn()
         case MODE_VEG:
             // VEG = 18/6 (ON 06:00–23:59, OFF 00:00–05:59)
             // NOTE: Start hour is fixed at 06:00; adjust in code to change.
-            return (hour >= 6);
+            return (hour >= 6 && hour < 24);
 
         case MODE_FLOWER:
             // FLOWER = 12/12 (ON 08:00–19:59, OFF 20:00–07:59)

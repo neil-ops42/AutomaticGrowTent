@@ -11,6 +11,5 @@ extern const char HTML_INDEX[]  PROGMEM;
 extern const char HTML_CONTROL[] PROGMEM;
 extern const char HTML_CHARTS[] PROGMEM;
 extern const char HTML_HISTORY[] PROGMEM;
-extern const char HTML_OTA[] PROGMEM;
 
 #endif // HTML_TEMPLATES_H
