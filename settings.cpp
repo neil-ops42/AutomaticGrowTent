@@ -39,8 +39,8 @@ void SettingsClass::begin() {
     if (f) {
       AppSettings d;
       f.println(String("mode=") + modeToStr(d.mode));
-      f.println(String("on_hour=") + d.on_hour);
-      f.println(String("off_hour=") + d.off_hour);
+      f.println(String("on_hour=") + String((int)d.on_hour));
+      f.println(String("off_hour=") + String((int)d.off_hour));
       f.close();
     }
   }
@@ -89,8 +89,8 @@ bool SettingsClass::save(const AppSettings &in) {
   if (!f) return false;
 
   f.println(String("mode=") + modeToStr(in.mode));
-  f.println(String("on_hour=") + in.on_hour);
-  f.println(String("off_hour=") + in.off_hour);
+  f.println(String("on_hour=") + String((int)in.on_hour));
+  f.println(String("off_hour=") + String((int)in.off_hour));
   f.close();
   return true;
 }

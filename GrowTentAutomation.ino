@@ -26,7 +26,8 @@ void setup() {
     Serial.begin(115200);
     Serial.println("\n=== GrowTentAutomation Starting ===");
 
-    // Register Arduino task with watchdog
+    // Register Arduino task with watchdog (30s timeout, panic on timeout)
+    esp_task_wdt_init(30, true);
     esp_task_wdt_add(NULL);
 
     // 1. I2C (needed by sensors)
