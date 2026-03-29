@@ -20,6 +20,8 @@ struct RelayState {
     bool light = false;
     bool fan = false;
     bool manualLightOverride = false;  
+    bool autoFan = true;               // Whether automatic fan control is enabled
+    bool manualFanOverride = false;    // Whether manual fan override is active
     GrowMode mode = MODE_CUSTOM;
 };
 
@@ -51,6 +53,7 @@ public:
 private:
     void updateLightSchedule();
     bool isLightScheduledOn();
+    void updateFanAuto();  // temperature-based fan control
 
     // Default to config values; editable at runtime
     uint8_t customOnHour  = LIGHT_ON_HOUR;

@@ -138,7 +138,7 @@ Once running, the ESP32 hosts a web server on port **80** with the following pag
 | Page | Path | Description |
 |---|---|---|
 | Dashboard | `/` | Live sensor readings and system status |
-| Control | `/control` | Toggle relays, switch grow modes, set custom schedule |
+| Control | `/controls` | Toggle relays, switch grow modes, set custom schedule |
 | Charts | `/charts` | Graphical view of logged sensor data |
 | History | `/history` | Raw CSV data download / view |
 | OTA Update | `/update` | Upload new firmware binaries over Wi-Fi |
