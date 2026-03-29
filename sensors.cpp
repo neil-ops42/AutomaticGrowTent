@@ -59,8 +59,8 @@ void SensorsClass::readAir()
     sensors_event_t hum, temp;
     sht4.getEvent(&hum, &temp);
 
-    current.airTemp = temp.temperature;
-    current.airHum  = hum.relative_humidity;
+    current.airTemp = roundf(temp.temperature * 100.0f) / 100.0f;
+    current.airHum  = roundf(hum.relative_humidity * 100.0f) / 100.0f;
     current.lastUpdate = millis();
 }
 
