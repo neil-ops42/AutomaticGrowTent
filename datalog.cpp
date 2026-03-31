@@ -3,8 +3,6 @@
 
 DataLogClass DataLog;
 
-bool lightOn = Relays.getRelay(1); // or Relays.getState().light
-
 // ─────────────────────────────────────────────
 // Initialize LittleFS and ensure CSV is ready
 // ─────────────────────────────────────────────
@@ -99,6 +97,8 @@ void DataLogClass::writeEntry(const SensorData& data)
     auto fmtVal = [](float v) -> String {
         return isnan(v) ? "" : String(v, 2);
     };
+
+    bool lightOn = Relays.getRelay(1);
 
     file.printf(
         "%s,%s,%s,%s,%d\n",
