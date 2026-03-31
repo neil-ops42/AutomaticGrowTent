@@ -15,7 +15,7 @@ void DataLogClass::begin()
         File f = LittleFS.open(HISTORY_FILE, FILE_WRITE);
         if (f)
         {
-            f.println("time,airTemp,airHum,waterTemp");
+            f.println("time,airTemp,airHum,waterTemp,lightOn");
             f.close();
         }
     }
@@ -53,7 +53,7 @@ void DataLogClass::rotateLog()
     // Create a fresh log with just the CSV header
     File hdr = LittleFS.open(HISTORY_FILE, FILE_WRITE);
     if (hdr) {
-        hdr.println("time,airTemp,airHum,waterTemp");
+        hdr.println("time,airTemp,airHum,waterTemp,lightOn");
         hdr.close();
     }
 
