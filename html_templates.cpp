@@ -134,7 +134,18 @@ let chartVpd = new Chart(document.getElementById("chart_vpd"), {
   options: {
     animation: false,
     responsive: true,
-    scales: { x: { display: false } }
+scales: {
+  x: {
+    display: true,
+    ticks: {
+      maxTicksLimit: 6,
+      callback: function(value) {
+        const label = this.getLabelForValue(value) || "";
+        return label.length >= 16 ? label.slice(11, 16) : label; // HH:MM
+      }
+    }
+  }
+}
   }
 });
 
@@ -354,7 +365,18 @@ function makeChart(id, label, color) {
         options: {
             animation: false,
             responsive: true,
-            scales: { x: { display: false } }
+scales: {
+  x: {
+    display: true,
+    ticks: {
+      maxTicksLimit: 6,
+      callback: function(value) {
+        const label = this.getLabelForValue(value) || "";
+        return label.length >= 16 ? label.slice(11, 16) : label; // HH:MM
+      }
+    }
+  }
+}
         }
     });
 }
@@ -484,9 +506,18 @@ function makeChart(id, label, color, labels, data) {
         options: {
             animation: false,
             responsive: true,
-            scales: {
-                x: { display: false }
-            }
+scales: {
+  x: {
+    display: true,
+    ticks: {
+      maxTicksLimit: 6,
+      callback: function(value) {
+        const label = this.getLabelForValue(value) || "";
+        return label.length >= 16 ? label.slice(11, 16) : label; // HH:MM
+      }
+    }
+  }
+}
         }
     });
 }
