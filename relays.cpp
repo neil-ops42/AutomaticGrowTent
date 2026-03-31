@@ -86,7 +86,15 @@ bool RelaysClass::isLightScheduledOn()
 
         case MODE_CUSTOM:
         default:
-            // Runtime-editable schedule (spans midnight)
+            // Always OFF if on==off (explicit safety behavior)
+            if (customOnHour == customOffHour) return false;
+        
+            // Same-day window (e.g., 06→18): ON inside the interval
+            if (customOnHour < customOffHour) {
+                return (hour >= customOnHour && hour < customOffHour);
+            }
+        
+            // Spans midnight (e.g., 18→06 or 06→00): ON late OR early
             return (hour >= customOnHour || hour < customOffHour);
     }
 }
