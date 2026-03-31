@@ -369,7 +369,7 @@ scales: {
   x: {
     display: true,
     ticks: {
-      maxTicksLimit: 6,
+      maxTicksLimit: 8,
       callback: function(value) {
         const label = this.getLabelForValue(value) || "";
         return label.length >= 16 ? label.slice(11, 16) : label; // HH:MM
@@ -510,7 +510,7 @@ scales: {
   x: {
     display: true,
     ticks: {
-      maxTicksLimit: 6,
+      maxTicksLimit: 8,
       callback: function(value) {
         const label = this.getLabelForValue(value) || "";
         return label.length >= 16 ? label.slice(11, 16) : label; // HH:MM
