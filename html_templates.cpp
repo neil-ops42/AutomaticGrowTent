@@ -445,6 +445,7 @@ const char HTML_HISTORY[] PROGMEM = R"rawliteral(
 <canvas id="hist_air_hum"  height="120"></canvas>
 <canvas id="hist_water"    height="120"></canvas>
 <canvas id="hist_vpd"      height="120"></canvas>
+<canvas id="hist_light"    height="120"></canvas>
 
 <script>
 // Utility: parse CSV into arrays
@@ -466,6 +467,7 @@ function parseCSV(text) {
     const airHum = [];
     const waterTemp = [];
     const vpd = [];
+    const lightOn = [];
 
     for (let i = 1; i < lines.length; i++) {
         const parts = lines[i].split(",");
@@ -484,42 +486,39 @@ function parseCSV(text) {
         airHum.push(ahVal);
         waterTemp.push(wtVal);
         vpd.push(calcVpd(atVal, ahVal));
+        const lo = (parts.length >= 5 && parts[4] !== "") ? parseInt(parts[4]) : NaN;
+        const loVal = isNaN(lo) ? null : (lo ? 1 : 0);
+        lightOn.push(loVal);
     }
 
-    return { labels, airTemp, airHum, waterTemp, vpd };
+    return { labels, airTemp, airHum, waterTemp, vpd, lightOn };
 }
 
-function makeChart(id, label, color, labels, data) {
-    return new Chart(document.getElementById(id), {
-        type: "line",
-        data: {
-            labels,
-            datasets: [{
-                label,
-                data,
-                borderColor: color,
-                borderWidth: 2,
-                tension: 0.2,
-                pointRadius: 0
-            }]
-        },
-        options: {
-            animation: false,
-            responsive: true,
-scales: {
-  x: {
-    display: true,
-    ticks: {
-      maxTicksLimit: 8,
-      callback: function(value) {
-        const label = this.getLabelForValue(value) || "";
-        return label.length >= 16 ? label.slice(11, 16) : label; // HH:MM
+function makeChart(id, label, color, labels, data, stepped=false, y01=false) {
+  return new Chart(document.getElementById(id), {
+    type: "line",
+    data: {
+      labels,
+      datasets: [{
+        label,
+        data,
+        borderColor: color,
+        borderWidth: 2,
+        tension: 0.2,
+        pointRadius: 0,
+        stepped: stepped,
+        tension: stepped ? 0 : 0.2
+      }]
+    },
+    options: {
+      animation: false,
+      responsive: true,
+      scales: {
+        x: { display: true },
+        y: y01 ? { min: 0, max: 1, ticks: { stepSize: 1 } } : {}
       }
     }
-  }
-}
-        }
-    });
+  });
 }
 
 fetch("/history.csv")
@@ -545,6 +544,9 @@ fetch("/history.csv")
 
         makeChart("hist_vpd", "VPD (kPa)", "purple",
                   hist.labels, hist.vpd);
+
+        makeChart("hist_light", "Light (1=On, 0=Off)", "orange",
+          hist.labels, hist.lightOn, /*stepped=*/true, /*y01=*/true);
     })
     .catch(err => {
         const el = document.getElementById("histError");
