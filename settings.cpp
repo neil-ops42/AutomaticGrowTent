@@ -104,7 +104,7 @@ bool SettingsClass::load(AppSettings &out) {
   }
   if (isnan(tmp.fan_on_temp_c)) tmp.fan_on_temp_c = FAN_ON_TEMP_C;
   if (isnan(tmp.fan_off_temp_c)) tmp.fan_off_temp_c = FAN_OFF_TEMP_C;
-  if (tmp.fan_off_temp_c > tmp.fan_on_temp_c) tmp.fan_off_temp_c = tmp.fan_on_temp_c;
+  if (tmp.fan_off_temp_c >= tmp.fan_on_temp_c) tmp.fan_off_temp_c = tmp.fan_on_temp_c - 0.1f;
   f.close();
 
   out = tmp;

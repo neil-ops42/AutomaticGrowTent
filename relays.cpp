@@ -221,7 +221,7 @@ void RelaysClass::setControlConfig(const ControlConfig& in)
 
     if (!isnan(in.fanOnTempC)) fanOnTempC = in.fanOnTempC;
     if (!isnan(in.fanOffTempC)) fanOffTempC = in.fanOffTempC;
-    if (fanOffTempC > fanOnTempC) fanOffTempC = fanOnTempC;
+    if (fanOffTempC >= fanOnTempC) fanOffTempC = fanOnTempC - 0.1f;
 
     state.manualLightOverride = false;
     if (state.autoFan) state.manualFanOverride = false;
