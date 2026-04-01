@@ -36,6 +36,10 @@ constexpr int  DAYLIGHT_OFFSET_SEC = 3600;    // DST
 // ─────────────────────────────────────────────
 constexpr int LIGHT_ON_HOUR  = 7;   // 7:00 AM
 constexpr int LIGHT_OFF_HOUR = 1;   // 1:00 AM
+constexpr int VEG_ON_HOUR    = 6;   // 6:00 AM
+constexpr int VEG_OFF_HOUR   = 0;   // 12:00 AM (midnight)
+constexpr int FLOWER_ON_HOUR = 8;   // 8:00 AM
+constexpr int FLOWER_OFF_HOUR= 20;  // 8:00 PM
 
 // ─────────────────────────────────────────────
 // SENSOR PINS
@@ -70,7 +74,8 @@ constexpr size_t        MAX_LOG_BYTES            = 100UL * 1024UL; // 100 KB log
 // ─────────────────────────────────────────────
 // FAN AUTO-CONTROL THRESHOLDS
 // ─────────────────────────────────────────────
-constexpr float FAN_ON_TEMP_C  = 28.0f;   // Turn fan ON above this temp
-constexpr float FAN_OFF_TEMP_C = 26.0f;   // Turn fan OFF below this temp (hysteresis)
+constexpr float FAN_ON_TEMP_C  = 28.0;   // Turn fan ON above this temp
+constexpr float FAN_OFF_TEMP_C = 26.0;   // Turn fan OFF below this temp (hysteresis)
+constexpr float FAN_MIN_HYSTERESIS_C = 0.1;
 
 #endif
