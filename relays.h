@@ -25,6 +25,18 @@ struct RelayState {
     GrowMode mode = MODE_CUSTOM;
 };
 
+struct ControlConfig {
+    uint8_t customOnHour = LIGHT_ON_HOUR;
+    uint8_t customOffHour = LIGHT_OFF_HOUR;
+    uint8_t vegOnHour = VEG_ON_HOUR;
+    uint8_t vegOffHour = VEG_OFF_HOUR;
+    uint8_t flowerOnHour = FLOWER_ON_HOUR;
+    uint8_t flowerOffHour = FLOWER_OFF_HOUR;
+    float fanOnTempC = FAN_ON_TEMP_C;
+    float fanOffTempC = FAN_OFF_TEMP_C;
+    bool autoFan = true;
+};
+
 // ─────────────────────────────────────────────
 // Relay Control Class
 // ─────────────────────────────────────────────
@@ -46,6 +58,13 @@ public:
     // New: runtime-editable schedule (used when MODE_CUSTOM)
     void setCustomSchedule(uint8_t onH, uint8_t offH);
     void getCustomSchedule(uint8_t& onH, uint8_t& offH);
+    void setVegSchedule(uint8_t onH, uint8_t offH);
+    void getVegSchedule(uint8_t& onH, uint8_t& offH);
+    void setFlowerSchedule(uint8_t onH, uint8_t offH);
+    void getFlowerSchedule(uint8_t& onH, uint8_t& offH);
+    void setControlConfig(const ControlConfig& in);
+    ControlConfig getControlConfig();
+    void saveControlConfig();
 
     // Clear manual override and let the scheduler resume immediately
     void resumeSchedule() { state.manualLightOverride = false; }
@@ -58,6 +77,12 @@ private:
     // Default to config values; editable at runtime
     uint8_t customOnHour  = LIGHT_ON_HOUR;
     uint8_t customOffHour = LIGHT_OFF_HOUR;
+    uint8_t vegOnHour     = VEG_ON_HOUR;
+    uint8_t vegOffHour    = VEG_OFF_HOUR;
+    uint8_t flowerOnHour  = FLOWER_ON_HOUR;
+    uint8_t flowerOffHour = FLOWER_OFF_HOUR;
+    float fanOnTempC      = FAN_ON_TEMP_C;
+    float fanOffTempC     = FAN_OFF_TEMP_C;
 };
 
 extern RelaysClass Relays;

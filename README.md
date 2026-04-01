@@ -186,6 +186,8 @@ Key constants in `config.h`:
 | `FAN_ON_TEMP_C` | `28.0` | Air temp threshold to turn fan ON (auto mode) |
 | `FAN_OFF_TEMP_C` | `26.0` | Air temp threshold to turn fan OFF (auto mode) — hysteresis prevents rapid cycling |
 
+Most control defaults are now editable from the **Controls** page at runtime and persisted to flash: custom/veg/flower schedule hours, auto-fan toggle, and fan ON/OFF temperature thresholds.
+
 ### Fan control
 
 The exhaust fan (Relay 2) supports two modes selectable from the Controls page:

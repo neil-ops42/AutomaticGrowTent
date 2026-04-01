@@ -245,7 +245,56 @@ function saveSchedule() {
       .then(j => {
          if (j.ok) alert("Schedule saved!");
          else alert("Error saving schedule.");
-      });
+       });
+}
+</script>
+
+<hr>
+<h4>VEG Schedule</h4>
+<label>On Time:</label>
+<input id="vegOnTime" type="time" value="06:00">
+<label>Off Time:</label>
+<input id="vegOffTime" type="time" value="00:00">
+
+<h4>FLOWER Schedule</h4>
+<label>On Time:</label>
+<input id="flowerOnTime" type="time" value="08:00">
+<label>Off Time:</label>
+<input id="flowerOffTime" type="time" value="20:00">
+
+<hr>
+<h4>Fan Control</h4>
+<label><input id="autoFan" type="checkbox" checked> Auto fan enabled</label><br>
+<label>Fan ON temp (°C):</label>
+<input id="fanOnTemp" type="number" step="0.1" value="28.0">
+<label>Fan OFF temp (°C):</label>
+<input id="fanOffTemp" type="number" step="0.1" value="26.0">
+<br>
+<button onclick="saveControlConfig()">Save All Controls</button>
+<script>
+function hh(t){ return parseInt((t||"00:00").split(":")[0]); }
+async function saveControlConfig() {
+  const p = new URLSearchParams();
+  p.set("custom_on", hh(document.getElementById("onTime").value));
+  p.set("custom_off", hh(document.getElementById("offTime").value));
+  p.set("veg_on", hh(document.getElementById("vegOnTime").value));
+  p.set("veg_off", hh(document.getElementById("vegOffTime").value));
+  p.set("flower_on", hh(document.getElementById("flowerOnTime").value));
+  p.set("flower_off", hh(document.getElementById("flowerOffTime").value));
+  p.set("auto_fan", document.getElementById("autoFan").checked ? "1" : "0");
+  p.set("fan_on_temp", document.getElementById("fanOnTemp").value || "28");
+  p.set("fan_off_temp", document.getElementById("fanOffTemp").value || "26");
+  try {
+    const res = await fetch("/controls/config", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: p.toString()
+    });
+    const j = await res.json();
+    alert(j.ok ? "Control settings saved!" : "Error saving control settings.");
+  } catch (e) {
+    alert("Error saving control settings.");
+  }
 }
 </script>
 <hr>
@@ -276,6 +325,17 @@ function onWsMessage(d) {
     document.getElementById("onTime").value  = String(d.on_hour).padStart(2,"0") + ":00";
     document.getElementById("offTime").value = String(d.off_hour).padStart(2,"0") + ":00";
   }
+  if ("veg_on_hour" in d) {
+    document.getElementById("vegOnTime").value = String(d.veg_on_hour).padStart(2,"0") + ":00";
+    document.getElementById("vegOffTime").value = String(d.veg_off_hour).padStart(2,"0") + ":00";
+  }
+  if ("flower_on_hour" in d) {
+    document.getElementById("flowerOnTime").value = String(d.flower_on_hour).padStart(2,"0") + ":00";
+    document.getElementById("flowerOffTime").value = String(d.flower_off_hour).padStart(2,"0") + ":00";
+  }
+  if ("auto_fan" in d) document.getElementById("autoFan").checked = !!d.auto_fan;
+  if ("fan_on_temp_c" in d) document.getElementById("fanOnTemp").value = d.fan_on_temp_c;
+  if ("fan_off_temp_c" in d) document.getElementById("fanOffTemp").value = d.fan_off_temp_c;
   if ("manual_override" in d) {
     document.getElementById("overrideNotice").style.display = d.manual_override ? "block" : "none";
   }
@@ -287,6 +347,13 @@ fetch('/settings')
   .then(d=>{
     document.getElementById("onTime").value  = String(d.on_hour).padStart(2,"0") + ":00";
     document.getElementById("offTime").value = String(d.off_hour).padStart(2,"0") + ":00";
+    document.getElementById("vegOnTime").value = String(d.veg_on_hour).padStart(2,"0") + ":00";
+    document.getElementById("vegOffTime").value = String(d.veg_off_hour).padStart(2,"0") + ":00";
+    document.getElementById("flowerOnTime").value = String(d.flower_on_hour).padStart(2,"0") + ":00";
+    document.getElementById("flowerOffTime").value = String(d.flower_off_hour).padStart(2,"0") + ":00";
+    document.getElementById("autoFan").checked = !!d.auto_fan;
+    document.getElementById("fanOnTemp").value = d.fan_on_temp_c;
+    document.getElementById("fanOffTemp").value = d.fan_off_temp_c;
     if (d.mode) setActiveMode(d.mode);
   });
 

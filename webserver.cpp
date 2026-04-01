@@ -23,6 +23,14 @@ static bool requireAuth(AsyncWebServerRequest* req)
     return false;
 }
 
+static bool parseBoolStr(const String& v)
+{
+  String t = v;
+  t.trim();
+  t.toLowerCase();
+  return (t == "1" || t == "true" || t == "yes" || t == "on");
+}
+
 // =====================================================================
 // Server Setup & WebSocket Logic
 // =====================================================================
@@ -189,6 +197,32 @@ void WebServerClass::setupRoutes() {
     req->send(200, "application/json", "{\"ok\":true}");
   });
 
+  // POST /controls/config -> update full control config
+  server.on("/controls/config", HTTP_POST, [](AsyncWebServerRequest* req){
+    auto clampHour = [](int x) -> uint8_t {
+      if (x < 0) x = 0;
+      if (x > 23) x = 23;
+      return (uint8_t)x;
+    };
+
+    ControlConfig c = Relays.getControlConfig();
+    if (req->hasParam("custom_on", true))     c.customOnHour = clampHour(req->getParam("custom_on", true)->value().toInt());
+    if (req->hasParam("custom_off", true))    c.customOffHour = clampHour(req->getParam("custom_off", true)->value().toInt());
+    if (req->hasParam("veg_on", true))        c.vegOnHour = clampHour(req->getParam("veg_on", true)->value().toInt());
+    if (req->hasParam("veg_off", true))       c.vegOffHour = clampHour(req->getParam("veg_off", true)->value().toInt());
+    if (req->hasParam("flower_on", true))     c.flowerOnHour = clampHour(req->getParam("flower_on", true)->value().toInt());
+    if (req->hasParam("flower_off", true))    c.flowerOffHour = clampHour(req->getParam("flower_off", true)->value().toInt());
+    if (req->hasParam("auto_fan", true))      c.autoFan = parseBoolStr(req->getParam("auto_fan", true)->value());
+    if (req->hasParam("fan_on_temp", true))   c.fanOnTempC = req->getParam("fan_on_temp", true)->value().toFloat();
+    if (req->hasParam("fan_off_temp", true))  c.fanOffTempC = req->getParam("fan_off_temp", true)->value().toFloat();
+    if (c.fanOffTempC > c.fanOnTempC) c.fanOffTempC = c.fanOnTempC;
+
+    Relays.setControlConfig(c);
+    Relays.loop();
+    WebServer.broadcastRelayState();
+    req->send(200, "application/json", "{\"ok\":true}");
+  });
+
   // GET /settings -> {"mode":"veg|flower|custom","on_hour":7,"off_hour":1}
   server.on("/settings", HTTP_GET, [](AsyncWebServerRequest* req){
     uint8_t onH, offH;
@@ -196,10 +230,18 @@ void WebServerClass::setupRoutes() {
     const char* modeStr = Relays.state.mode == MODE_VEG    ? "veg"
                         : Relays.state.mode == MODE_FLOWER ? "flower"
                                                            : "custom";
-    StaticJsonDocument<64> doc;
+    StaticJsonDocument<256> doc;
+    ControlConfig cfg = Relays.getControlConfig();
     doc["mode"]     = modeStr;
     doc["on_hour"]  = onH;
     doc["off_hour"] = offH;
+    doc["veg_on_hour"] = cfg.vegOnHour;
+    doc["veg_off_hour"] = cfg.vegOffHour;
+    doc["flower_on_hour"] = cfg.flowerOnHour;
+    doc["flower_off_hour"] = cfg.flowerOffHour;
+    doc["auto_fan"] = cfg.autoFan;
+    doc["fan_on_temp_c"] = cfg.fanOnTempC;
+    doc["fan_off_temp_c"] = cfg.fanOffTempC;
 
     String json;
     serializeJson(doc, json);
@@ -269,12 +311,20 @@ void WebServerClass::setupWebSocket() {
       const char* modeStr = r.mode == MODE_VEG    ? "veg"
                           : r.mode == MODE_FLOWER  ? "flower"
                                                    : "custom";
-      StaticJsonDocument<128> doc;
+      StaticJsonDocument<256> doc;
+      ControlConfig cfg = Relays.getControlConfig();
       doc["relay1"]          = r.light;
       doc["relay2"]          = r.fan;
       doc["mode"]            = modeStr;
       doc["on_hour"]         = onH;
       doc["off_hour"]        = offH;
+      doc["veg_on_hour"]     = cfg.vegOnHour;
+      doc["veg_off_hour"]    = cfg.vegOffHour;
+      doc["flower_on_hour"]  = cfg.flowerOnHour;
+      doc["flower_off_hour"] = cfg.flowerOffHour;
+      doc["auto_fan"]        = cfg.autoFan;
+      doc["fan_on_temp_c"]   = cfg.fanOnTempC;
+      doc["fan_off_temp_c"]  = cfg.fanOffTempC;
       doc["manual_override"] = r.manualLightOverride;
       String json;
       serializeJson(doc, json);
@@ -304,9 +354,7 @@ void WebServerClass::setupWebSocket() {
         if (msg == "mode_flower") Relays.state.mode = MODE_FLOWER;
         if (msg == "mode_custom") Relays.state.mode = MODE_CUSTOM;
         // Persist mode change (schedule changes are saved inside setCustomSchedule)
-        uint8_t onH, offH; Relays.getCustomSchedule(onH, offH);
-        AppSettings s; s.mode = Relays.state.mode; s.on_hour = onH; s.off_hour = offH;
-        Settings.save(s);
+        Relays.saveControlConfig();
       }
 
       broadcastRelayState();
@@ -324,12 +372,20 @@ void WebServerClass::broadcastRelayState() {
                       : r.mode == MODE_FLOWER  ? "flower"
                                                : "custom";
 
-  StaticJsonDocument<128> doc;
+  StaticJsonDocument<256> doc;
+  ControlConfig cfg = Relays.getControlConfig();
   doc["relay1"]           = r.light;
   doc["relay2"]           = r.fan;
   doc["mode"]             = modeStr;
   doc["on_hour"]          = onH;
   doc["off_hour"]         = offH;
+  doc["veg_on_hour"]      = cfg.vegOnHour;
+  doc["veg_off_hour"]     = cfg.vegOffHour;
+  doc["flower_on_hour"]   = cfg.flowerOnHour;
+  doc["flower_off_hour"]  = cfg.flowerOffHour;
+  doc["auto_fan"]         = cfg.autoFan;
+  doc["fan_on_temp_c"]    = cfg.fanOnTempC;
+  doc["fan_off_temp_c"]   = cfg.fanOffTempC;
   doc["manual_override"]  = r.manualLightOverride;
 
   String json;

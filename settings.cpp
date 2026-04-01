@@ -41,6 +41,13 @@ void SettingsClass::begin() {
       f.println(String("mode=") + modeToStr(d.mode));
       f.println(String("on_hour=") + String((int)d.on_hour));
       f.println(String("off_hour=") + String((int)d.off_hour));
+      f.println(String("veg_on_hour=") + String((int)d.veg_on_hour));
+      f.println(String("veg_off_hour=") + String((int)d.veg_off_hour));
+      f.println(String("flower_on_hour=") + String((int)d.flower_on_hour));
+      f.println(String("flower_off_hour=") + String((int)d.flower_off_hour));
+      f.println(String("auto_fan=") + String(d.auto_fan ? 1 : 0));
+      f.println(String("fan_on_temp_c=") + String(d.fan_on_temp_c, 2));
+      f.println(String("fan_off_temp_c=") + String(d.fan_off_temp_c, 2));
       f.close();
     }
   }
@@ -74,8 +81,30 @@ bool SettingsClass::load(AppSettings &out) {
     } else if (k == "off_hour") {
       int x = v.toInt(); if (x < 0) x = 0; if (x > 23) x = 23;
       tmp.off_hour = (uint8_t)x;
+    } else if (k == "veg_on_hour") {
+      int x = v.toInt(); if (x < 0) x = 0; if (x > 23) x = 23;
+      tmp.veg_on_hour = (uint8_t)x;
+    } else if (k == "veg_off_hour") {
+      int x = v.toInt(); if (x < 0) x = 0; if (x > 23) x = 23;
+      tmp.veg_off_hour = (uint8_t)x;
+    } else if (k == "flower_on_hour") {
+      int x = v.toInt(); if (x < 0) x = 0; if (x > 23) x = 23;
+      tmp.flower_on_hour = (uint8_t)x;
+    } else if (k == "flower_off_hour") {
+      int x = v.toInt(); if (x < 0) x = 0; if (x > 23) x = 23;
+      tmp.flower_off_hour = (uint8_t)x;
+    } else if (k == "auto_fan") {
+      String t = trimLower(v);
+      tmp.auto_fan = (t == "1" || t == "true" || t == "yes" || t == "on");
+    } else if (k == "fan_on_temp_c") {
+      tmp.fan_on_temp_c = v.toFloat();
+    } else if (k == "fan_off_temp_c") {
+      tmp.fan_off_temp_c = v.toFloat();
     }
   }
+  if (isnan(tmp.fan_on_temp_c)) tmp.fan_on_temp_c = FAN_ON_TEMP_C;
+  if (isnan(tmp.fan_off_temp_c)) tmp.fan_off_temp_c = FAN_OFF_TEMP_C;
+  if (tmp.fan_off_temp_c > tmp.fan_on_temp_c) tmp.fan_off_temp_c = tmp.fan_on_temp_c;
   f.close();
 
   out = tmp;
@@ -91,6 +120,13 @@ bool SettingsClass::save(const AppSettings &in) {
   f.println(String("mode=") + modeToStr(in.mode));
   f.println(String("on_hour=") + String((int)in.on_hour));
   f.println(String("off_hour=") + String((int)in.off_hour));
+  f.println(String("veg_on_hour=") + String((int)in.veg_on_hour));
+  f.println(String("veg_off_hour=") + String((int)in.veg_off_hour));
+  f.println(String("flower_on_hour=") + String((int)in.flower_on_hour));
+  f.println(String("flower_off_hour=") + String((int)in.flower_off_hour));
+  f.println(String("auto_fan=") + String(in.auto_fan ? 1 : 0));
+  f.println(String("fan_on_temp_c=") + String(in.fan_on_temp_c, 2));
+  f.println(String("fan_off_temp_c=") + String(in.fan_off_temp_c, 2));
   f.close();
   return true;
 }

@@ -27,6 +27,13 @@ void RelaysClass::begin()
     if (Settings.load(s)) {
         customOnHour = s.on_hour;
         customOffHour = s.off_hour;
+        vegOnHour = s.veg_on_hour;
+        vegOffHour = s.veg_off_hour;
+        flowerOnHour = s.flower_on_hour;
+        flowerOffHour = s.flower_off_hour;
+        fanOnTempC = s.fan_on_temp_c;
+        fanOffTempC = s.fan_off_temp_c;
+        state.autoFan = s.auto_fan;
         state.mode    = s.mode;
     }
 }
@@ -75,14 +82,14 @@ bool RelaysClass::isLightScheduledOn()
     switch (state.mode)
     {
         case MODE_VEG:
-            // VEG = 18/6 (ON 06:00–23:59, OFF 00:00–05:59)
-            // NOTE: Start hour is fixed at 06:00; adjust in code to change.
-            return (hour >= 6 && hour < 24);
+            if (vegOnHour == vegOffHour) return false;
+            if (vegOnHour < vegOffHour) return (hour >= vegOnHour && hour < vegOffHour);
+            return (hour >= vegOnHour || hour < vegOffHour);
 
         case MODE_FLOWER:
-            // FLOWER = 12/12 (ON 08:00–19:59, OFF 20:00–07:59)
-            // NOTE: Start/end hours are fixed at 08:00/20:00; adjust in code to change.
-            return (hour >= 8 && hour < 20);
+            if (flowerOnHour == flowerOffHour) return false;
+            if (flowerOnHour < flowerOffHour) return (hour >= flowerOnHour && hour < flowerOffHour);
+            return (hour >= flowerOnHour || hour < flowerOffHour);
 
         case MODE_CUSTOM:
         default:
@@ -157,6 +164,13 @@ void RelaysClass::setCustomSchedule(uint8_t onH, uint8_t offH)
     s.mode = state.mode;
     s.on_hour = customOnHour;
     s.off_hour = customOffHour;
+    s.veg_on_hour = vegOnHour;
+    s.veg_off_hour = vegOffHour;
+    s.flower_on_hour = flowerOnHour;
+    s.flower_off_hour = flowerOffHour;
+    s.auto_fan = state.autoFan;
+    s.fan_on_temp_c = fanOnTempC;
+    s.fan_off_temp_c = fanOffTempC;
     Settings.save(s);
 }
 
@@ -164,6 +178,86 @@ void RelaysClass::getCustomSchedule(uint8_t& onH, uint8_t& offH)
 {
     onH  = customOnHour;
     offH = customOffHour;
+}
+
+void RelaysClass::setVegSchedule(uint8_t onH, uint8_t offH)
+{
+    if (onH > 23 || offH > 23) return;
+    vegOnHour = onH;
+    vegOffHour = offH;
+    saveControlConfig();
+}
+
+void RelaysClass::getVegSchedule(uint8_t& onH, uint8_t& offH)
+{
+    onH = vegOnHour;
+    offH = vegOffHour;
+}
+
+void RelaysClass::setFlowerSchedule(uint8_t onH, uint8_t offH)
+{
+    if (onH > 23 || offH > 23) return;
+    flowerOnHour = onH;
+    flowerOffHour = offH;
+    saveControlConfig();
+}
+
+void RelaysClass::getFlowerSchedule(uint8_t& onH, uint8_t& offH)
+{
+    onH = flowerOnHour;
+    offH = flowerOffHour;
+}
+
+void RelaysClass::setControlConfig(const ControlConfig& in)
+{
+    customOnHour = (in.customOnHour <= 23) ? in.customOnHour : customOnHour;
+    customOffHour = (in.customOffHour <= 23) ? in.customOffHour : customOffHour;
+    vegOnHour = (in.vegOnHour <= 23) ? in.vegOnHour : vegOnHour;
+    vegOffHour = (in.vegOffHour <= 23) ? in.vegOffHour : vegOffHour;
+    flowerOnHour = (in.flowerOnHour <= 23) ? in.flowerOnHour : flowerOnHour;
+    flowerOffHour = (in.flowerOffHour <= 23) ? in.flowerOffHour : flowerOffHour;
+
+    state.autoFan = in.autoFan;
+
+    if (!isnan(in.fanOnTempC)) fanOnTempC = in.fanOnTempC;
+    if (!isnan(in.fanOffTempC)) fanOffTempC = in.fanOffTempC;
+    if (fanOffTempC > fanOnTempC) fanOffTempC = fanOnTempC;
+
+    state.manualLightOverride = false;
+    if (state.autoFan) state.manualFanOverride = false;
+
+    saveControlConfig();
+}
+
+ControlConfig RelaysClass::getControlConfig()
+{
+    ControlConfig out;
+    out.customOnHour = customOnHour;
+    out.customOffHour = customOffHour;
+    out.vegOnHour = vegOnHour;
+    out.vegOffHour = vegOffHour;
+    out.flowerOnHour = flowerOnHour;
+    out.flowerOffHour = flowerOffHour;
+    out.fanOnTempC = fanOnTempC;
+    out.fanOffTempC = fanOffTempC;
+    out.autoFan = state.autoFan;
+    return out;
+}
+
+void RelaysClass::saveControlConfig()
+{
+    AppSettings s;
+    s.mode = state.mode;
+    s.on_hour = customOnHour;
+    s.off_hour = customOffHour;
+    s.veg_on_hour = vegOnHour;
+    s.veg_off_hour = vegOffHour;
+    s.flower_on_hour = flowerOnHour;
+    s.flower_off_hour = flowerOffHour;
+    s.auto_fan = state.autoFan;
+    s.fan_on_temp_c = fanOnTempC;
+    s.fan_off_temp_c = fanOffTempC;
+    Settings.save(s);
 }
 
 // ─────────────────────────────────────────────
@@ -180,8 +274,8 @@ void RelaysClass::updateFanAuto()
 
     if (state.manualFanOverride) {
         // Auto-clear override when temperature crosses transition threshold
-        bool shouldBeOn = (s.airTemp >= FAN_ON_TEMP_C);
-        bool shouldBeOff = (s.airTemp <= FAN_OFF_TEMP_C);
+        bool shouldBeOn = (s.airTemp >= fanOnTempC);
+        bool shouldBeOff = (s.airTemp <= fanOffTempC);
         if ((state.fan && shouldBeOff) || (!state.fan && shouldBeOn)) {
             state.manualFanOverride = false;
         } else {
@@ -189,9 +283,9 @@ void RelaysClass::updateFanAuto()
         }
     }
 
-    if (!state.fan && s.airTemp >= FAN_ON_TEMP_C) {
+    if (!state.fan && s.airTemp >= fanOnTempC) {
         setRelay(2, true, /*fromSchedule=*/ true);
-    } else if (state.fan && s.airTemp <= FAN_OFF_TEMP_C) {
+    } else if (state.fan && s.airTemp <= fanOffTempC) {
         setRelay(2, false, /*fromSchedule=*/ true);
     }
 }

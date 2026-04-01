@@ -12,6 +12,13 @@ struct AppSettings {
   GrowMode mode = MODE_CUSTOM;
   uint8_t on_hour  = LIGHT_ON_HOUR;  // defaults from config.h
   uint8_t off_hour = LIGHT_OFF_HOUR; // defaults from config.h
+  uint8_t veg_on_hour = VEG_ON_HOUR;
+  uint8_t veg_off_hour = VEG_OFF_HOUR;
+  uint8_t flower_on_hour = FLOWER_ON_HOUR;
+  uint8_t flower_off_hour = FLOWER_OFF_HOUR;
+  bool auto_fan = true;
+  float fan_on_temp_c = FAN_ON_TEMP_C;
+  float fan_off_temp_c = FAN_OFF_TEMP_C;
 };
 
 class SettingsClass {
