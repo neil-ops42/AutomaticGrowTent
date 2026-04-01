@@ -215,7 +215,7 @@ void WebServerClass::setupRoutes() {
     if (req->hasParam("auto_fan", true))      c.autoFan = parseBoolStr(req->getParam("auto_fan", true)->value());
     if (req->hasParam("fan_on_temp", true))   c.fanOnTempC = req->getParam("fan_on_temp", true)->value().toFloat();
     if (req->hasParam("fan_off_temp", true))  c.fanOffTempC = req->getParam("fan_off_temp", true)->value().toFloat();
-    if (c.fanOffTempC >= c.fanOnTempC) c.fanOffTempC = c.fanOnTempC - 0.1f;
+    if (c.fanOffTempC >= c.fanOnTempC) c.fanOffTempC = c.fanOnTempC - FAN_MIN_HYSTERESIS_C;
 
     Relays.setControlConfig(c);
     Relays.loop();
