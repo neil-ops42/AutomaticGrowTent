@@ -282,8 +282,10 @@ async function saveControlConfig() {
   p.set("flower_on", hh(document.getElementById("flowerOnTime").value));
   p.set("flower_off", hh(document.getElementById("flowerOffTime").value));
   p.set("auto_fan", document.getElementById("autoFan").checked ? "1" : "0");
-  p.set("fan_on_temp", document.getElementById("fanOnTemp").value || "28");
-  p.set("fan_off_temp", document.getElementById("fanOffTemp").value || "26");
+  const fanOnVal = document.getElementById("fanOnTemp").value;
+  const fanOffVal = document.getElementById("fanOffTemp").value;
+  if (fanOnVal !== "") p.set("fan_on_temp", fanOnVal);
+  if (fanOffVal !== "") p.set("fan_off_temp", fanOffVal);
   try {
     const res = await fetch("/controls/config", {
       method: "POST",
