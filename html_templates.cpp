@@ -110,45 +110,119 @@ const char HTML_FOOTER[] PROGMEM = R"rawliteral(
   DASHBOARD CONTENT
 ─────────────────────────────────────────────*/
 const char HTML_INDEX[] PROGMEM = R"rawliteral(
-<h2>Sensors</h2>
-<p>Air Temp: <span id="air">--</span> °C</p>
-<p>Humidity: <span id="hum">--</span> %</p>
-<p>Water Temp: <span id="water">--</span> °C</p>
-<p>Time: <span id="time">--</span></p>
-<h3>VPD</h3>
-<canvas id="chart_vpd" height="120"></canvas>
+<style>
+  .dash-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 16px;
+    margin-top: 20px;
+  }
+  .dash-card {
+    border-radius: 12px;
+    padding: 20px 16px;
+    text-align: center;
+    background: linear-gradient(145deg, #1e2a38, #253446);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    color: #fff;
+  }
+  .dark .dash-card {
+    background: linear-gradient(145deg, #0d1520, #162030);
+  }
+  .dash-card .card-label {
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #8eafc9;
+    margin-bottom: 10px;
+  }
+  .dash-card .card-value {
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+    color: #e8f4ff;
+  }
+  .dash-card .card-unit {
+    font-size: 14px;
+    color: #8eafc9;
+    margin-top: 6px;
+  }
+  .dash-card.air   .card-value { color: #ff8a65; }
+  .dash-card.hum   .card-value { color: #4fc3f7; }
+  .dash-card.vpd   .card-value { color: #ce93d8; }
+  .dash-card.water .card-value { color: #4db6ac; }
+  .light-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 24px;
+    padding: 16px 20px;
+    border-radius: 12px;
+    background: linear-gradient(145deg, #1e2a38, #253446);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    color: #fff;
+    max-width: 280px;
+  }
+  .dark .light-row {
+    background: linear-gradient(145deg, #0d1520, #162030);
+  }
+  .light-dot {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #444;
+    flex-shrink: 0;
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+  .light-dot.on  { background: #69f0ae; box-shadow: 0 0 10px #69f0ae88; }
+  .light-dot.off { background: #ef5350; box-shadow: 0 0 10px #ef535088; }
+  .light-label {
+    font-size: 13px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #8eafc9;
+  }
+  .light-state {
+    font-size: 20px;
+    font-weight: 700;
+    color: #e8f4ff;
+    margin-left: auto;
+  }
+  .light-state.on  { color: #69f0ae; }
+  .light-state.off { color: #ef5350; }
+</style>
+
+<h2>Dashboard</h2>
+
+<div class="dash-grid">
+  <div class="dash-card air">
+    <div class="card-label">Air Temperature</div>
+    <div class="card-value" id="dash_air">--</div>
+    <div class="card-unit">°C</div>
+  </div>
+  <div class="dash-card hum">
+    <div class="card-label">Humidity</div>
+    <div class="card-value" id="dash_hum">--</div>
+    <div class="card-unit">%</div>
+  </div>
+  <div class="dash-card vpd">
+    <div class="card-label">VPD</div>
+    <div class="card-value" id="dash_vpd">--</div>
+    <div class="card-unit">kPa</div>
+  </div>
+  <div class="dash-card water">
+    <div class="card-label">Water Temperature</div>
+    <div class="card-value" id="dash_water">--</div>
+    <div class="card-unit">°C</div>
+  </div>
+</div>
+
+<div class="light-row">
+  <div class="light-dot" id="dash_light_dot"></div>
+  <span class="light-label">Light</span>
+  <span class="light-state" id="dash_light_state">--</span>
+</div>
 
 <script>
-let chartVpd = new Chart(document.getElementById("chart_vpd"), {
-  type: "line",
-  data: {
-    labels: [],
-    datasets: [{
-      label: "VPD (kPa)",
-      data: [],
-      borderColor: "purple",
-      borderWidth: 2,
-      tension: 0.2
-    }]
-  },
-  options: {
-    animation: false,
-    responsive: true,
-scales: {
-  x: {
-    display: true,
-    ticks: {
-      maxTicksLimit: 6,
-      callback: function(value) {
-        const label = this.getLabelForValue(value) || "";
-        return label.length >= 16 ? label.slice(11, 16) : label; // HH:MM
-      }
-    }
-  }
-}
-  }
-});
-
 function calcVpd(tempC, rh) {
   if (!isFinite(tempC) || !isFinite(rh)) return null;
   const rhPercent = (rh >= 0 && rh <= 1) ? (rh * 100) : rh;
@@ -158,27 +232,31 @@ function calcVpd(tempC, rh) {
   return Math.round(vpd * 1000) / 1000;
 }
 
-setInterval(() => {
-  fetch('/data').then(r => r.json()).then(d => {
-    document.getElementById("air").innerText = d.air_temp;
-    document.getElementById("hum").innerText = d.air_humidity;
-    document.getElementById("water").innerText = d.water_temp;
-    document.getElementById("time").innerText = d.time;
+function onWsMessage(j) {
+  if (j.air_temp !== undefined && j.air_temp !== null)
+    document.getElementById("dash_air").innerText = j.air_temp;
 
-    const vpd = calcVpd(parseFloat(d.air_temp), parseFloat(d.air_humidity));
-    if (vpd !== null) {
-      const label = d.time || "";
-      const MAX_VPD_POINTS = 300;
-      chartVpd.data.labels.push(label);
-      chartVpd.data.datasets[0].data.push(vpd);
-      if (chartVpd.data.labels.length > MAX_VPD_POINTS) {
-        chartVpd.data.labels.shift();
-        chartVpd.data.datasets[0].data.shift();
-      }
-      chartVpd.update();
-    }
-  });
-}, 2000);
+  if (j.air_humidity !== undefined && j.air_humidity !== null)
+    document.getElementById("dash_hum").innerText = j.air_humidity;
+
+  if (j.water_temp !== undefined && j.water_temp !== null)
+    document.getElementById("dash_water").innerText = j.water_temp;
+
+  if (j.air_temp !== undefined && j.air_humidity !== undefined) {
+    const vpd = calcVpd(parseFloat(j.air_temp), parseFloat(j.air_humidity));
+    if (vpd !== null)
+      document.getElementById("dash_vpd").innerText = vpd;
+  }
+
+  if ("relay1" in j) {
+    const on = j.relay1;
+    const dot   = document.getElementById("dash_light_dot");
+    const state = document.getElementById("dash_light_state");
+    dot.className   = "light-dot " + (on ? "on" : "off");
+    state.className = "light-state " + (on ? "on" : "off");
+    state.innerText = on ? "On" : "Off";
+  }
+}
 </script>
 )rawliteral";
 
