@@ -222,6 +222,12 @@ const char HTML_INDEX[] PROGMEM = R"rawliteral(
   <span class="light-state" id="dash_light_state">--</span>
 </div>
 
+<div class="light-row">
+  <div class="light-dot" id="dash_fan_dot"></div>
+  <span class="light-label">Fan</span>
+  <span class="light-state" id="dash_fan_state">--</span>
+</div>
+
 <script>
 function calcVpd(tempC, rh) {
   if (!isFinite(tempC) || !isFinite(rh)) return null;
@@ -232,6 +238,14 @@ function calcVpd(tempC, rh) {
   return Math.round(vpd * 1000) / 1000;
 }
 
+function setIndicator(dotId, stateId, on) {
+  const dot   = document.getElementById(dotId);
+  const state = document.getElementById(stateId);
+  dot.className   = "light-dot " + (on ? "on" : "off");
+  state.className = "light-state " + (on ? "on" : "off");
+  state.innerText = on ? "On" : "Off";
+}
+
 function onWsMessage(j) {
   if (j.air_temp !== undefined && j.air_temp !== null)
     document.getElementById("dash_air").innerText = j.air_temp;
@@ -240,22 +254,16 @@ function onWsMessage(j) {
     document.getElementById("dash_hum").innerText = j.air_humidity;
 
   if (j.water_temp !== undefined && j.water_temp !== null)
-    document.getElementById("dash_water").innerText = j.water_temp;
+    document.getElementById("dash_water").innerText = parseFloat(j.water_temp).toFixed(1);
 
   if (j.air_temp !== undefined && j.air_humidity !== undefined) {
     const vpd = calcVpd(parseFloat(j.air_temp), parseFloat(j.air_humidity));
     if (vpd !== null)
-      document.getElementById("dash_vpd").innerText = vpd;
+      document.getElementById("dash_vpd").innerText = vpd.toFixed(2);
   }
 
-  if ("relay1" in j) {
-    const on = j.relay1;
-    const dot   = document.getElementById("dash_light_dot");
-    const state = document.getElementById("dash_light_state");
-    dot.className   = "light-dot " + (on ? "on" : "off");
-    state.className = "light-state " + (on ? "on" : "off");
-    state.innerText = on ? "On" : "Off";
-  }
+  if ("relay1" in j) setIndicator("dash_light_dot", "dash_light_state", j.relay1);
+  if ("relay2" in j) setIndicator("dash_fan_dot",   "dash_fan_state",   j.relay2);
 }
 </script>
 )rawliteral";
