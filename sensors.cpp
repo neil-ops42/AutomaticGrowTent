@@ -75,6 +75,7 @@ void SensorsClass::readAir()
     current.airHum  = roundf(hum.relative_humidity * 100.0f) / 100.0f;
     current.vpd     = calcVPD(current.airTemp, current.airHum);
     current.lastUpdate = millis();
+    if (!isnan(current.airTemp)) current.lastValidAirRead = current.lastUpdate;
 }
 
 // ─────────────────────────────────────────────
@@ -105,6 +106,7 @@ void SensorsClass::readWater()
         current.waterTemp = NAN;
     } else {
         current.waterTemp = t;
+        current.lastValidWaterRead = now;
     }
     current.lastUpdate = now;
     waiting = false;

@@ -108,12 +108,28 @@ void OLEDClass::render()
 
     SensorData s = Sensors.getData();
     RelayState r = Relays.getState();
+    unsigned long now = millis();
+
+    // Helper: format ERR age string into a small buffer (e.g. "ERR 2m")
+    // Returns the buffer pointer for chaining
+    auto errAge = [&](unsigned long lastValid, char* buf, size_t bufsz) -> const char* {
+        if (lastValid == 0) {
+            snprintf(buf, bufsz, "ERR");
+        } else {
+            unsigned long ageSec = (now - lastValid) / 1000UL;
+            if (ageSec < 60) snprintf(buf, bufsz, "ERR %lus", ageSec);
+            else             snprintf(buf, bufsz, "ERR %lum", ageSec / 60UL);
+        }
+        return buf;
+    };
+
+    char errBuf[12];
 
     display.setCursor(0, 18);
 
     // Air Temp
     display.print("Air: ");
-    if (isnan(s.airTemp)) display.println("ERR");
+    if (isnan(s.airTemp)) display.println(errAge(s.lastValidAirRead, errBuf, sizeof(errBuf)));
     else {
         display.print(s.airTemp, 1);
         display.println("C");
@@ -121,7 +137,7 @@ void OLEDClass::render()
 
     // Humidity
     display.print("Hum: ");
-    if (isnan(s.airHum)) display.println("ERR");
+    if (isnan(s.airHum)) display.println(errAge(s.lastValidAirRead, errBuf, sizeof(errBuf)));
     else {
         display.print(s.airHum, 1);
         display.println("%");
@@ -129,7 +145,7 @@ void OLEDClass::render()
 
     // VPD
     display.print("VPD: ");
-    if (isnan(s.vpd)) display.println("ERR");
+    if (isnan(s.vpd)) display.println(errAge(s.lastValidAirRead, errBuf, sizeof(errBuf)));
     else {
         display.print(s.vpd, 2);
         display.println("kPa");
@@ -137,7 +153,7 @@ void OLEDClass::render()
 
     // Water Temp
     display.print("Water: ");
-    if (isnan(s.waterTemp)) display.println("ERR");
+    if (isnan(s.waterTemp)) display.println(errAge(s.lastValidWaterRead, errBuf, sizeof(errBuf)));
     else {
         display.print(s.waterTemp, 1);
         display.println("C");

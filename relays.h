@@ -83,6 +83,9 @@ private:
     uint8_t flowerOffHour = FLOWER_OFF_HOUR;
     float fanOnTempC      = FAN_ON_TEMP_C;
     float fanOffTempC     = FAN_OFF_TEMP_C;
+
+    // Fan debounce: tracks last time the fan relay was toggled
+    unsigned long lastFanToggleMs = 0;
 };
 
 extern RelaysClass Relays;

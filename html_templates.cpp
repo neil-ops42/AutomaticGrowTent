@@ -57,6 +57,20 @@ const char HTML_HEADER[] PROGMEM = R"rawliteral(
 
 <script>
 let ws;
+// Password for authenticated WebSocket commands.
+// Prompts once per page load and caches in memory.
+let _wsPass = null;
+function getWsPass() {
+    if (_wsPass === null) {
+        _wsPass = prompt("Enter device password to send commands:") || "";
+    }
+    return _wsPass;
+}
+function wsSend(cmd) {
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({cmd: cmd, pass: getWsPass()}));
+    }
+}
 function connectWS() {
     ws = new WebSocket((location.protocol === "https:" ? "wss://" : "ws://") + location.host + "/ws");
 
@@ -283,21 +297,21 @@ const char HTML_CONTROL[] PROGMEM = R"rawliteral(
 </style>
 
 <h3>Grow Mode</h3>
-<button class="mode-btn" id="btnVeg"     onclick="ws.send('mode_veg');   setActiveMode('veg');">VEG (18/6)</button>
-<button class="mode-btn" id="btnFlower"  onclick="ws.send('mode_flower');setActiveMode('flower');">FLOWER (12/12)</button>
-<button class="mode-btn" id="btnCustom"  onclick="ws.send('mode_custom');setActiveMode('custom');">CUSTOM</button>
+<button class="mode-btn" id="btnVeg"     onclick="wsSend('mode_veg');   setActiveMode('veg');">VEG (18/6)</button>
+<button class="mode-btn" id="btnFlower"  onclick="wsSend('mode_flower');setActiveMode('flower');">FLOWER (12/12)</button>
+<button class="mode-btn" id="btnCustom"  onclick="wsSend('mode_custom');setActiveMode('custom');">CUSTOM</button>
 <p>Current mode is highlighted and updates live.</p>
 
 <hr>
 <h3>Relays</h3>
 <p><b>Light:</b>
-  <button onclick="ws.send('relay1_on')">ON</button>
-  <button onclick="ws.send('relay1_off')">OFF</button>
-  <button onclick="ws.send('schedule_resume')" title="Clear manual override and return to automatic schedule">Resume Schedule</button>
+  <button onclick="wsSend('relay1_on')">ON</button>
+  <button onclick="wsSend('relay1_off')">OFF</button>
+  <button onclick="wsSend('schedule_resume')" title="Clear manual override and return to automatic schedule">Resume Schedule</button>
 </p>
 <p><b>Fan:</b>
-  <button onclick="ws.send('relay2_on')">ON</button>
-  <button onclick="ws.send('relay2_off')">OFF</button>
+  <button onclick="wsSend('relay2_on')">ON</button>
+  <button onclick="wsSend('relay2_off')">OFF</button>
 </p>
 <p id="overrideNotice" style="display:none;color:#c62828;">⚠ Manual override active — schedule paused until next transition or Resume.</p>
 
@@ -590,7 +604,7 @@ fetch('/settings')
 // Restart device via WebSocket (requires explicit confirmation token)
 function restartDevice() {
   if (!confirm('Restart the device? It will take a few seconds to come back online.')) return;
-  ws.send('device_restart_confirm');
+  wsSend('device_restart_confirm');
   alert('Device is restarting...');
 }
 

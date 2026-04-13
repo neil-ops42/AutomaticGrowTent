@@ -89,7 +89,7 @@ void WebServerClass::loop() {
     if (getLocalTime(&t)) strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
     else strcpy(ts, "NO_TIME");
 
-    StaticJsonDocument<192> doc;
+    StaticJsonDocument<256> doc;
     doc["air_temp"]     = s.airTemp;   // ArduinoJson serializes NaN as null
     doc["air_humidity"] = s.airHum;
     doc["water_temp"]   = s.waterTemp;
@@ -186,7 +186,7 @@ void WebServerClass::setupRoutes() {
     if (getLocalTime(&t)) strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
     else strcpy(ts, "NO_TIME");
 
-    StaticJsonDocument<192> doc;
+    StaticJsonDocument<256> doc;
     doc["air_temp"]     = s.airTemp;   // ArduinoJson serializes NaN as null
     doc["air_humidity"] = s.airHum;
     doc["water_temp"]   = s.waterTemp;
@@ -332,9 +332,29 @@ void WebServerClass::setupRoutes() {
   });
 
   // POST /settings/restore — upload a settings file, write it to LittleFS, and reload
+  // Security: the upload handler writes to a temp file. The response handler checks
+  // authentication first, then renames the temp to the real settings path. If auth
+  // fails the temp file is deleted so the real settings are never overwritten.
   server.on("/settings/restore", HTTP_POST,
     [](AsyncWebServerRequest* req) {
-      if (requireAuth(req)) return;
+      // Clean up temp file no matter what
+      const char* tmpPath = "/settings_upload.tmp";
+      if (!req->authenticate(WEB_AUTH_USERNAME, WEB_AUTH_PASSWORD)) {
+        if (LittleFS.exists(tmpPath)) LittleFS.remove(tmpPath);
+        req->requestAuthentication();
+        return;
+      }
+      // Rename temp to real settings path
+      if (!LittleFS.exists(tmpPath)) {
+        req->send(400, "application/json", "{\"error\":\"no file received\"}");
+        return;
+      }
+      if (LittleFS.exists(SETTINGS_FILE)) LittleFS.remove(SETTINGS_FILE);
+      if (!LittleFS.rename(tmpPath, SETTINGS_FILE)) {
+        LittleFS.remove(tmpPath);
+        req->send(500, "application/json", "{\"error\":\"could not save settings file\"}");
+        return;
+      }
       AppSettings s;
       if (!Settings.load(s)) {
         req->send(500, "application/json", "{\"error\":\"settings saved but could not be parsed\"}");
@@ -346,8 +366,13 @@ void WebServerClass::setupRoutes() {
       req->send(200, "application/json", "{\"ok\":true}");
     },
     [](AsyncWebServerRequest* req, const String& /*filename*/, size_t index, uint8_t* data, size_t len, bool final) {
+      const char* tmpPath = "/settings_upload.tmp";
+      // Check authentication before opening the temp file on the first chunk
       if (index == 0) {
-        req->_tempFile = LittleFS.open(SETTINGS_FILE, FILE_WRITE);
+        if (!req->authenticate(WEB_AUTH_USERNAME, WEB_AUTH_PASSWORD)) {
+          return;  // Don't open or write anything; response handler will send 401
+        }
+        req->_tempFile = LittleFS.open(tmpPath, FILE_WRITE);
       }
       if (req->_tempFile) {
         req->_tempFile.write(data, len);
@@ -405,23 +430,42 @@ void WebServerClass::setupWebSocket() {
       msg.reserve(len + 1);
       for (size_t i = 0; i < len; i++) msg += (char)data[i];
 
+      // All commands are sent as JSON: {"cmd":"<command>","pass":"<password>"}
+      // The password must match WEB_AUTH_PASSWORD for destructive commands
+      // (relay toggles, mode changes, device restart).
+      StaticJsonDocument<128> jdoc;
+      DeserializationError jerr = deserializeJson(jdoc, msg);
+      if (jerr) {
+        client->text("{\"error\":\"invalid JSON\"}");
+        return;
+      }
+
+      const char* cmd  = jdoc["cmd"]  | "";
+      const char* pass = jdoc["pass"] | "";
+
+      // Validate password for any command that changes device state
+      if (strcmp(pass, WEB_AUTH_PASSWORD) != 0) {
+        client->text("{\"error\":\"unauthorized\"}");
+        return;
+      }
+
       // Require explicit confirmation command before restarting to prevent
       // accidental or malicious reboots from a casual WebSocket message.
-      if (msg == "device_restart_confirm") {
+      if (strcmp(cmd, "device_restart_confirm") == 0) {
         restartRequested = true;  // handled safely in main loop()
       }
 
-      if (msg == "relay1_on")  Relays.setRelay(1, true);
-      if (msg == "relay1_off") Relays.setRelay(1, false);
-      if (msg == "relay2_on")  Relays.setRelay(2, true);
-      if (msg == "relay2_off") Relays.setRelay(2, false);
+      if (strcmp(cmd, "relay1_on")  == 0) Relays.setRelay(1, true);
+      if (strcmp(cmd, "relay1_off") == 0) Relays.setRelay(1, false);
+      if (strcmp(cmd, "relay2_on")  == 0) Relays.setRelay(2, true);
+      if (strcmp(cmd, "relay2_off") == 0) Relays.setRelay(2, false);
 
-      if (msg == "schedule_resume") Relays.resumeSchedule();
+      if (strcmp(cmd, "schedule_resume") == 0) Relays.resumeSchedule();
 
-      if (msg == "mode_veg" || msg == "mode_flower" || msg == "mode_custom") {
-        if (msg == "mode_veg")    Relays.state.mode = MODE_VEG;
-        if (msg == "mode_flower") Relays.state.mode = MODE_FLOWER;
-        if (msg == "mode_custom") Relays.state.mode = MODE_CUSTOM;
+      if (strcmp(cmd, "mode_veg") == 0 || strcmp(cmd, "mode_flower") == 0 || strcmp(cmd, "mode_custom") == 0) {
+        if (strcmp(cmd, "mode_veg")    == 0) Relays.state.mode = MODE_VEG;
+        if (strcmp(cmd, "mode_flower") == 0) Relays.state.mode = MODE_FLOWER;
+        if (strcmp(cmd, "mode_custom") == 0) Relays.state.mode = MODE_CUSTOM;
         // Persist mode change (schedule changes are saved inside setCustomSchedule)
         Relays.saveControlConfig();
       }

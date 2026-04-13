@@ -53,6 +53,11 @@ void RelaysClass::loop()
 // ─────────────────────────────────────────────
 void RelaysClass::updateLightSchedule()
 {
+    // If time is unavailable, keep the current light state unchanged.
+    // Do NOT default to OFF — that would harm plants during a clock fault.
+    struct tm t;
+    if (!getLocalTime(&t)) return;
+
     bool scheduled = isLightScheduledOn();
 
     if (state.manualLightOverride) {
@@ -75,7 +80,7 @@ void RelaysClass::updateLightSchedule()
 bool RelaysClass::isLightScheduledOn()
 {
     struct tm t;
-    if (!getLocalTime(&t)) return false;  // Fail safe
+    if (!getLocalTime(&t)) return state.light;  // Time unavailable — preserve current state
 
     int hour = t.tm_hour;
 
@@ -121,6 +126,7 @@ void RelaysClass::setRelay(uint8_t id, bool stateIn, bool fromSchedule)
     }
 
     if (id == 2) {
+        if (stateIn != state.fan) lastFanToggleMs = millis();  // record toggle time
         state.fan = stateIn;
         if (!fromSchedule) state.manualFanOverride = true;
         digitalWrite(PIN_RELAY_2, stateIn ? RELAY_ACTIVE_STATE : RELAY_INACTIVE_STATE);
@@ -282,6 +288,10 @@ void RelaysClass::updateFanAuto()
             return;  // Manual override still active — do not touch
         }
     }
+
+    // Debounce: don't allow fan to toggle more than once every 30 seconds
+    constexpr unsigned long FAN_DEBOUNCE_MS = 30000UL;
+    if (millis() - lastFanToggleMs < FAN_DEBOUNCE_MS) return;
 
     if (!state.fan && s.airTemp >= fanOnTempC) {
         setRelay(2, true, /*fromSchedule=*/ true);
