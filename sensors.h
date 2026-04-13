@@ -15,6 +15,8 @@ struct SensorData
     float waterTemp = NAN;
     float vpd = NAN;
     unsigned long lastUpdate = 0;
+    unsigned long lastValidAirRead = 0;    // millis() of last non-NaN air reading
+    unsigned long lastValidWaterRead = 0;  // millis() of last non-NaN water reading
 };
 
 class SensorsClass

@@ -32,8 +32,20 @@ void setup() {
         .idle_core_mask = 0,       // don't watch idle tasks
         .trigger_panic = true      // panic (reboot) on timeout
     };
-    esp_task_wdt_init(&wdt_config);
-    esp_task_wdt_add(NULL);
+    esp_err_t wdt_err = esp_task_wdt_init(&wdt_config);
+    if (wdt_err == ESP_ERR_INVALID_STATE) {
+        // WDT already initialised by the framework — reconfigure it
+        Serial.println("WDT already initialised — reconfiguring");
+        wdt_err = esp_task_wdt_reconfigure(&wdt_config);
+    }
+    if (wdt_err != ESP_OK) {
+        Serial.printf("⚠️  WDT init/reconfigure failed: %d\n", (int)wdt_err);
+    }
+    wdt_err = esp_task_wdt_add(NULL);
+    if (wdt_err != ESP_OK && wdt_err != ESP_ERR_INVALID_ARG) {
+        // ESP_ERR_INVALID_ARG means the task was already registered — that's fine
+        Serial.printf("⚠️  WDT add task failed: %d\n", (int)wdt_err);
+    }
 
     // 1. I2C (needed by sensors)
     Wire.begin(SDA_PIN, SCL_PIN);
@@ -66,13 +78,45 @@ void setup() {
 void loop() {
     // WiFi reconnection check (every 30 seconds)
     static unsigned long lastWiFiCheck = millis();
+    static bool wifiReconnecting = false;
+    static unsigned long wifiReconnectStart = 0;
     unsigned long now = millis();
     if (now - lastWiFiCheck >= 30000) {
         lastWiFiCheck = now;
-        if (WiFi.status() != WL_CONNECTED) {
+        if (WiFi.status() == WL_CONNECTED) {
+            if (wifiReconnecting) {
+                // Just reconnected — re-sync NTP immediately
+                wifiReconnecting = false;
+                Serial.println("WiFi reconnected — re-syncing NTP");
+                configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+            }
+        } else if (!wifiReconnecting) {
+            // Start a new reconnect attempt
             Serial.println("WiFi lost — reconnecting...");
+            wifiReconnecting = true;
+            wifiReconnectStart = now;
             WiFi.disconnect();
             WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+        } else if (now - wifiReconnectStart >= 60000) {
+            // Reconnect timeout — tear down and retry
+            Serial.println("WiFi reconnect timeout — retrying...");
+            wifiReconnecting = false;
+            WiFi.disconnect();
+            WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+            wifiReconnecting = true;
+            wifiReconnectStart = now;
+        }
+        // else: reconnect still in progress — do not interrupt it
+    }
+
+    // Periodic NTP re-sync check (every 60 seconds)
+    static unsigned long lastNtpCheck = 0;
+    if (now - lastNtpCheck >= 60000) {
+        lastNtpCheck = now;
+        struct tm timeinfo;
+        if (!getLocalTime(&timeinfo, 1000)) {
+            Serial.println("NTP not synced — retrying...");
+            configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
         }
     }
 
