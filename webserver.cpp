@@ -4,6 +4,7 @@
 #include <ArduinoJson.h>
 #include <WiFi.h>
 #include <time.h>
+#include <esp_task_wdt.h>
 
 #include "webserver.h"
 #include "html_templates.h"
@@ -48,6 +49,27 @@ void WebServerClass::begin() {
 
   // ElegantOTA default UI at /update
   ElegantOTA.begin(&server);
+
+  // Disable watchdog while OTA is in progress so large uploads
+  // don't trigger a panic reboot mid-flash
+  ElegantOTA.onStart([]() {
+    Serial.println("OTA update starting - disabling watchdog");
+    esp_task_wdt_delete(NULL);
+  });
+
+  // After OTA completes, cleanly tear down before restarting
+  ElegantOTA.onEnd([this](bool success) {
+    if (success) {
+      Serial.println("OTA success - restarting cleanly");
+      ws.closeAll();
+      server.end();
+      delay(500);
+      ESP.restart();
+    } else {
+      Serial.println("OTA failed - re-enabling watchdog");
+      esp_task_wdt_add(NULL);
+    }
+  });
 
   server.begin();
   Serial.println("Web Server Started.");
