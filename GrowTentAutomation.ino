@@ -14,10 +14,15 @@
 #include "html_templates.h"
 #include "settings.h"
 
-const char* NTP_SERVER        = "ca.pool.ntp.org";
+const char* NTP_SERVER        = DEFAULT_NTP_SERVER;
 const char* HISTORY_FILE      = "/history.csv";
 const char* HISTORY_OLD_FILE  = "/history_old.csv";
 const char* SETTINGS_FILE     = "/settings.txt";
+
+// Runtime timezone/NTP globals (updated from user settings)
+long  runtimeGmtOffsetSec     = GMT_OFFSET_SEC;
+int   runtimeDaylightOffsetSec = DAYLIGHT_OFFSET_SEC;
+char  runtimeNtpServer[64]    = DEFAULT_NTP_SERVER;
 
 void connectWiFi();
 void initTime();
@@ -63,6 +68,28 @@ void setup() {
     // 5. Storage (mounts LittleFS once)
     Settings.begin();
 
+    // 5b. Load user settings and apply to all modules
+    {
+        AppSettings s;
+        if (Settings.load(s)) {
+            // Timezone & NTP
+            runtimeGmtOffsetSec = s.gmt_offset_sec;
+            runtimeDaylightOffsetSec = s.daylight_offset_sec;
+            strncpy(runtimeNtpServer, s.ntp_server, sizeof(runtimeNtpServer) - 1);
+            runtimeNtpServer[sizeof(runtimeNtpServer) - 1] = '\0';
+            NTP_SERVER = runtimeNtpServer;
+            configTime(runtimeGmtOffsetSec, runtimeDaylightOffsetSec, NTP_SERVER);
+
+            // Sensor intervals
+            Sensors.setAirInterval((unsigned long)s.air_sensor_interval_sec * 1000UL);
+            Sensors.setWaterInterval((unsigned long)s.water_sensor_interval_sec * 1000UL);
+
+            // Data log settings
+            DataLog.setLogInterval((unsigned long)s.log_interval_sec * 1000UL);
+            DataLog.setMaxLogBytes((size_t)s.max_log_kb * 1024UL);
+        }
+    }
+
     // 6. Sensors (now Wire is ready)
     Sensors.begin();
 
@@ -88,7 +115,7 @@ void loop() {
                 // Just reconnected — re-sync NTP immediately
                 wifiReconnecting = false;
                 Serial.println("WiFi reconnected — re-syncing NTP");
-                configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+                configTime(runtimeGmtOffsetSec, runtimeDaylightOffsetSec, NTP_SERVER);
             }
         } else if (!wifiReconnecting) {
             // Start a new reconnect attempt
@@ -116,7 +143,7 @@ void loop() {
         struct tm timeinfo;
         if (!getLocalTime(&timeinfo, 1000)) {
             Serial.println("NTP not synced — retrying...");
-            configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+            configTime(runtimeGmtOffsetSec, runtimeDaylightOffsetSec, NTP_SERVER);
         }
     }
 
@@ -164,7 +191,7 @@ void connectWiFi() {
 }
 
 void initTime() {
-    configTime(GMT_OFFSET_SEC, DAYLIGHT_OFFSET_SEC, NTP_SERVER);
+    configTime(runtimeGmtOffsetSec, runtimeDaylightOffsetSec, NTP_SERVER);
 
     struct tm timeinfo;
     if (!getLocalTime(&timeinfo)) {

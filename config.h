@@ -77,5 +77,19 @@ constexpr size_t        MAX_LOG_BYTES            = 400UL * 1024UL; // 400 KB log
 constexpr float FAN_ON_TEMP_C  = 28.0;   // Turn fan ON above this temp
 constexpr float FAN_OFF_TEMP_C = 26.0;   // Turn fan OFF below this temp (hysteresis)
 constexpr float FAN_MIN_HYSTERESIS_C = 0.5;
+constexpr unsigned long FAN_DEBOUNCE_MS = 30000UL; // 30 seconds
+
+// ─────────────────────────────────────────────
+// DEFAULT NTP SERVER
+// ─────────────────────────────────────────────
+#define DEFAULT_NTP_SERVER "ca.pool.ntp.org"
+
+// ─────────────────────────────────────────────
+// RUNTIME TIMEZONE/NTP GLOBALS (defined in main .ino)
+// Updated when user changes timezone/NTP settings.
+// ─────────────────────────────────────────────
+extern long  runtimeGmtOffsetSec;
+extern int   runtimeDaylightOffsetSec;
+extern char  runtimeNtpServer[64];
 
 #endif

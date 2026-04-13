@@ -30,15 +30,15 @@ void SensorsClass::loop()
 {
     unsigned long now = millis();
 
-    // Air sensor every 5 sec
-    if (now - lastAirRead >= AIR_SENSOR_INTERVAL_MS)
+    // Air sensor every configured interval
+    if (now - lastAirRead >= airIntervalMs)
     {
         lastAirRead = now;
         readAir();
     }
 
-    // Water sensor every 5 sec
-    if (now - lastWaterRead >= WATER_SENSOR_INTERVAL_MS)
+    // Water sensor every configured interval
+    if (now - lastWaterRead >= waterIntervalMs)
     {
         readWater();
     }

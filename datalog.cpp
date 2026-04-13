@@ -31,7 +31,7 @@ void DataLogClass::loop()
 {
     unsigned long now = millis();
 
-    if (now - lastLog >= LOG_INTERVAL_MS)
+    if (now - lastLog >= logIntervalMs)
     {
         lastLog = now;
         writeEntry(Sensors.getData());
@@ -77,7 +77,7 @@ void DataLogClass::writeEntry(const SensorData& data)
     {
         File check = LittleFS.open(HISTORY_FILE, FILE_READ);
         if (check) {
-            bool overLimit = check.size() >= MAX_LOG_BYTES;
+            bool overLimit = check.size() >= maxLogBytes;
             check.close();
             if (overLimit) {
                 rotateLog();

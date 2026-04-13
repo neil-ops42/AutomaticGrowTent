@@ -48,6 +48,15 @@ void SettingsClass::begin() {
       f.println(String("auto_fan=") + String(d.auto_fan ? 1 : 0));
       f.println(String("fan_on_temp_c=") + String(d.fan_on_temp_c, 2));
       f.println(String("fan_off_temp_c=") + String(d.fan_off_temp_c, 2));
+      f.println(String("gmt_offset_sec=") + String(d.gmt_offset_sec));
+      f.println(String("daylight_offset_sec=") + String(d.daylight_offset_sec));
+      f.println(String("ntp_server=") + String(d.ntp_server));
+      f.println(String("air_sensor_interval_sec=") + String(d.air_sensor_interval_sec));
+      f.println(String("water_sensor_interval_sec=") + String(d.water_sensor_interval_sec));
+      f.println(String("log_interval_sec=") + String(d.log_interval_sec));
+      f.println(String("max_log_kb=") + String(d.max_log_kb));
+      f.println(String("fan_min_hysteresis_c=") + String(d.fan_min_hysteresis_c, 2));
+      f.println(String("fan_debounce_sec=") + String(d.fan_debounce_sec));
       f.close();
     }
   }
@@ -100,11 +109,39 @@ bool SettingsClass::load(AppSettings &out) {
       tmp.fan_on_temp_c = v.toFloat();
     } else if (k == "fan_off_temp_c") {
       tmp.fan_off_temp_c = v.toFloat();
+    } else if (k == "gmt_offset_sec") {
+      tmp.gmt_offset_sec = v.toInt();
+    } else if (k == "daylight_offset_sec") {
+      tmp.daylight_offset_sec = v.toInt();
+    } else if (k == "ntp_server") {
+      v.trim();
+      if (v.length() > 0 && v.length() < sizeof(tmp.ntp_server)) {
+        strncpy(tmp.ntp_server, v.c_str(), sizeof(tmp.ntp_server) - 1);
+        tmp.ntp_server[sizeof(tmp.ntp_server) - 1] = '\0';
+      }
+    } else if (k == "air_sensor_interval_sec") {
+      int x = v.toInt(); if (x < 1) x = 1; if (x > 3600) x = 3600;
+      tmp.air_sensor_interval_sec = (uint16_t)x;
+    } else if (k == "water_sensor_interval_sec") {
+      int x = v.toInt(); if (x < 1) x = 1; if (x > 3600) x = 3600;
+      tmp.water_sensor_interval_sec = (uint16_t)x;
+    } else if (k == "log_interval_sec") {
+      int x = v.toInt(); if (x < 10) x = 10; if (x > 3600) x = 3600;
+      tmp.log_interval_sec = (uint16_t)x;
+    } else if (k == "max_log_kb") {
+      int x = v.toInt(); if (x < 10) x = 10; if (x > 4096) x = 4096;
+      tmp.max_log_kb = (uint16_t)x;
+    } else if (k == "fan_min_hysteresis_c") {
+      float x = v.toFloat();
+      if (!isnan(x) && x >= 0.1f && x <= 10.0f) tmp.fan_min_hysteresis_c = x;
+    } else if (k == "fan_debounce_sec") {
+      int x = v.toInt(); if (x < 0) x = 0; if (x > 600) x = 600;
+      tmp.fan_debounce_sec = (uint16_t)x;
     }
   }
   if (isnan(tmp.fan_on_temp_c)) tmp.fan_on_temp_c = FAN_ON_TEMP_C;
   if (isnan(tmp.fan_off_temp_c)) tmp.fan_off_temp_c = FAN_OFF_TEMP_C;
-  if (tmp.fan_off_temp_c >= tmp.fan_on_temp_c) tmp.fan_off_temp_c = tmp.fan_on_temp_c - FAN_MIN_HYSTERESIS_C;
+  if (tmp.fan_off_temp_c >= tmp.fan_on_temp_c) tmp.fan_off_temp_c = tmp.fan_on_temp_c - tmp.fan_min_hysteresis_c;
   f.close();
 
   out = tmp;
@@ -127,6 +164,15 @@ bool SettingsClass::save(const AppSettings &in) {
   f.println(String("auto_fan=") + String(in.auto_fan ? 1 : 0));
   f.println(String("fan_on_temp_c=") + String(in.fan_on_temp_c, 2));
   f.println(String("fan_off_temp_c=") + String(in.fan_off_temp_c, 2));
+  f.println(String("gmt_offset_sec=") + String(in.gmt_offset_sec));
+  f.println(String("daylight_offset_sec=") + String(in.daylight_offset_sec));
+  f.println(String("ntp_server=") + String(in.ntp_server));
+  f.println(String("air_sensor_interval_sec=") + String(in.air_sensor_interval_sec));
+  f.println(String("water_sensor_interval_sec=") + String(in.water_sensor_interval_sec));
+  f.println(String("log_interval_sec=") + String(in.log_interval_sec));
+  f.println(String("max_log_kb=") + String(in.max_log_kb));
+  f.println(String("fan_min_hysteresis_c=") + String(in.fan_min_hysteresis_c, 2));
+  f.println(String("fan_debounce_sec=") + String(in.fan_debounce_sec));
   f.close();
   return true;
 }
