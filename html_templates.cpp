@@ -405,6 +405,8 @@ async function saveControlConfig() {
 <h3>History Data</h3>
 <p>
   <a href="/history.csv" download>Download history.csv</a>
+  &nbsp;|&nbsp;
+  <a href="/history_old.csv" download>Download history_old.csv</a>
 </p>
 
 <hr>
