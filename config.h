@@ -61,7 +61,7 @@ constexpr int FLOWER_OFF_HOUR= 20;  // 8:00 PM
 constexpr unsigned long LOG_INTERVAL_MS          = 60 * 1000;   // 1 minute
 constexpr unsigned long AIR_SENSOR_INTERVAL_MS   = 5000;        // 5 sec
 constexpr unsigned long WATER_SENSOR_INTERVAL_MS = 5000;        // 5 sec
-constexpr size_t        MAX_LOG_BYTES            = 100UL * 1024UL; // 100 KB log size limit
+constexpr size_t        MAX_LOG_BYTES            = 400UL * 1024UL; // 400 KB log size limit
 
 // ─────────────────────────────────────────────
 // WIFI SIGNAL THRESHOLDS (RSSI)
