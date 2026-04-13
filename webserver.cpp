@@ -2,6 +2,7 @@
 #include <FS.h>
 #include <LittleFS.h>
 #include <ArduinoJson.h>
+#include <WiFi.h>
 #include <time.h>
 
 #include "webserver.h"
@@ -169,6 +170,50 @@ void WebServerClass::setupRoutes() {
     doc["water_temp"]   = s.waterTemp;
     doc["vpd"]          = s.vpd;
     doc["time"]         = ts;
+
+    String json;
+    serializeJson(doc, json);
+    req->send(200, "application/json", json);
+  });
+
+  // GET /api/device — ESP32 system metrics snapshot
+  server.on("/api/device", HTTP_GET, [](AsyncWebServerRequest* req){
+    uint32_t ramTotal   = ESP.getHeapSize();
+    uint32_t ramFree    = ESP.getFreeHeap();
+    uint32_t ramUsed    = ramTotal - ramFree;
+    float    ramPct     = ramTotal > 0 ? (ramUsed * 100.0f / ramTotal) : 0.0f;
+
+    uint64_t stTotal    = LittleFS.totalBytes();
+    uint64_t stUsed     = LittleFS.usedBytes();
+    uint64_t stFree     = stTotal - stUsed;
+    float    stPct      = stTotal > 0 ? (stUsed * 100.0f / stTotal) : 0.0f;
+
+    uint32_t skUsed     = ESP.getSketchSize();
+    uint32_t skFree     = ESP.getFreeSketchSpace();
+    uint32_t skTotal    = skUsed + skFree;
+    float    skPct      = skTotal > 0 ? (skUsed * 100.0f / skTotal) : 0.0f;
+
+    StaticJsonDocument<768> doc;
+    doc["ram_total"]     = ramTotal;
+    doc["ram_free"]      = ramFree;
+    doc["ram_used"]      = ramUsed;
+    doc["ram_pct"]       = ramPct;
+    doc["storage_total"] = (uint32_t)stTotal;
+    doc["storage_used"]  = (uint32_t)stUsed;
+    doc["storage_free"]  = (uint32_t)stFree;
+    doc["storage_pct"]   = stPct;
+    doc["cpu_freq_mhz"]  = ESP.getCpuFreqMHz();
+    doc["cpu_model"]     = ESP.getChipModel();
+    doc["cpu_cores"]     = ESP.getChipCores();
+    doc["flash_size"]    = ESP.getFlashChipSize();
+    doc["sketch_used"]   = skUsed;
+    doc["sketch_total"]  = skTotal;
+    doc["sketch_pct"]    = skPct;
+    doc["uptime_sec"]    = (uint32_t)(millis() / 1000UL);
+    doc["wifi_rssi"]     = WiFi.RSSI();
+    doc["wifi_ip"]       = WiFi.localIP().toString();
+    doc["wifi_mac"]      = WiFi.macAddress();
+    doc["sdk_version"]   = ESP.getSdkVersion();
 
     String json;
     serializeJson(doc, json);

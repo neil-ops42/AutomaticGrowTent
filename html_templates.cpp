@@ -394,6 +394,146 @@ async function saveControlConfig() {
 </p>
 
 <hr>
+<h3>Device Data</h3>
+
+<style>
+  .dev-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 14px;
+    margin: 14px 0;
+  }
+  .dev-card {
+    border-radius: 10px;
+    padding: 14px 16px;
+    background: linear-gradient(145deg, #1e2a38, #253446);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    color: #fff;
+  }
+  .dev-card .dc-label {
+    font-size: 12px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    color: #8eafc9;
+    margin-bottom: 4px;
+  }
+  .dev-card .dc-value {
+    font-size: 18px;
+    font-weight: 700;
+    color: #69f0ae;
+    margin-bottom: 6px;
+  }
+  .dev-card .dc-sub {
+    font-size: 12px;
+    color: #aac4de;
+  }
+  .dev-bar-bg {
+    background: #1a2535;
+    border-radius: 4px;
+    height: 8px;
+    margin-top: 6px;
+    overflow: hidden;
+  }
+  .dev-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease;
+  }
+  .bar-green  { background: #69f0ae; }
+  .bar-yellow { background: #ffd54f; }
+  .bar-red    { background: #ef5350; }
+</style>
+
+<div id="devDataGrid" class="dev-grid">
+  <div class="dev-card"><div class="dc-label">Loading…</div></div>
+</div>
+<button onclick="loadDeviceData()">Refresh Device Data</button>
+
+<script>
+const USAGE_WARNING_THRESHOLD  = 60;
+const USAGE_CRITICAL_THRESHOLD = 80;
+function fmtBytes(b) {
+  if (b >= 1048576) return (b / 1048576).toFixed(2) + ' MB';
+  if (b >= 1024)    return (b / 1024).toFixed(1) + ' KB';
+  return b + ' B';
+}
+function fmtUptime(sec) {
+  const d = Math.floor(sec / 86400); sec %= 86400;
+  const h = Math.floor(sec / 3600);  sec %= 3600;
+  const m = Math.floor(sec / 60);    sec %= 60;
+  return (d ? d+'d ' : '') + (h ? h+'h ' : '') + (m ? m+'m ' : '') + sec+'s';
+}
+function barClass(pct) {
+  return pct < USAGE_WARNING_THRESHOLD ? 'bar-green' : pct < USAGE_CRITICAL_THRESHOLD ? 'bar-yellow' : 'bar-red';
+}
+function makeCard(label, valueHtml, subHtml, pct) {
+  const bar = pct !== null
+    ? '<div class="dev-bar-bg"><div class="dev-bar-fill ' + barClass(pct) + '" style="width:' + Math.min(pct,100).toFixed(1) + '%"></div></div>'
+    : '';
+  return '<div class="dev-card">'
+       + '<div class="dc-label">' + label + '</div>'
+       + '<div class="dc-value">' + valueHtml + '</div>'
+       + (subHtml ? '<div class="dc-sub">' + subHtml + '</div>' : '')
+       + bar
+       + '</div>';
+}
+async function loadDeviceData() {
+  const grid = document.getElementById('devDataGrid');
+  try {
+    const res = await fetch('/api/device');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    const ramPct  = parseFloat(d.ram_pct);
+    const stPct   = parseFloat(d.storage_pct);
+    const skPct   = parseFloat(d.sketch_pct);
+    let html = '';
+    html += makeCard('RAM Usage',
+      fmtBytes(d.ram_used) + ' / ' + fmtBytes(d.ram_total),
+      ramPct.toFixed(1) + '% used &bull; ' + fmtBytes(d.ram_free) + ' free',
+      ramPct);
+    html += makeCard('Storage Usage',
+      fmtBytes(d.storage_used) + ' / ' + fmtBytes(d.storage_total),
+      stPct.toFixed(1) + '% used &bull; ' + fmtBytes(d.storage_free) + ' free',
+      stPct);
+    html += makeCard('Sketch (Firmware)',
+      fmtBytes(d.sketch_used) + ' / ' + fmtBytes(d.sketch_total),
+      skPct.toFixed(1) + '% used',
+      skPct);
+    html += makeCard('CPU',
+      d.cpu_freq_mhz + ' MHz',
+      d.cpu_model + ' &bull; ' + d.cpu_cores + ' core' + (d.cpu_cores > 1 ? 's' : ''),
+      null);
+    html += makeCard('Flash Size',
+      fmtBytes(d.flash_size),
+      'Total onboard flash',
+      null);
+    html += makeCard('Uptime',
+      fmtUptime(d.uptime_sec),
+      d.uptime_sec + ' seconds',
+      null);
+    const rssi = d.wifi_rssi;
+    const sig  = rssi >= -55 ? 'Excellent' : rssi >= -67 ? 'Good' : rssi >= -70 ? 'Fair' : 'Weak';
+    html += makeCard('WiFi Signal',
+      rssi + ' dBm',
+      sig + ' &bull; IP: ' + d.wifi_ip,
+      null);
+    html += makeCard('MAC Address',
+      '<span style="font-size:13px">' + d.wifi_mac + '</span>',
+      '',
+      null);
+    html += makeCard('SDK Version',
+      '<span style="font-size:13px">' + d.sdk_version + '</span>',
+      'ESP-IDF',
+      null);
+    grid.innerHTML = html;
+  } catch(e) {
+    grid.innerHTML = '<div class="dev-card"><div class="dc-label">Error</div><div class="dc-value" style="color:#ef5350">Failed to load device data</div></div>';
+  }
+}
+loadDeviceData();
+</script>
+
+<hr>
 <h3>Device Control</h3>
 <button style="background:#c62828;color:#fff;" onclick="restartDevice()">Restart Device</button>
 <button style="background:#c62828;color:#fff;" onclick="resetSettings()">Reset Settings</button>
