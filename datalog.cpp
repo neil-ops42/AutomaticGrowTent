@@ -16,7 +16,7 @@ void DataLogClass::begin()
         File f = LittleFS.open(HISTORY_FILE, FILE_WRITE);
         if (f)
         {
-            f.println("time,airTemp,airHum,waterTemp,lightOn");
+            f.println("time,airTemp,airHum,waterTemp,vpd,lightOn");
             f.close();
         }
     }
@@ -54,7 +54,7 @@ void DataLogClass::rotateLog()
     // Create a fresh log with just the CSV header
     File hdr = LittleFS.open(HISTORY_FILE, FILE_WRITE);
     if (hdr) {
-        hdr.println("time,airTemp,airHum,waterTemp,lightOn");
+        hdr.println("time,airTemp,airHum,waterTemp,vpd,lightOn");
         hdr.close();
     }
 
@@ -101,11 +101,12 @@ void DataLogClass::writeEntry(const SensorData& data)
     bool lightOn = Relays.getRelay(1);
 
     file.printf(
-        "%s,%s,%s,%s,%d\n",
+        "%s,%s,%s,%s,%s,%d\n",
         ts,
         fmtVal(data.airTemp).c_str(),
         fmtVal(data.airHum).c_str(),
         fmtVal(data.waterTemp).c_str(),
+        fmtVal(data.vpd).c_str(),
         lightOn ? 1 : 0
     );
 

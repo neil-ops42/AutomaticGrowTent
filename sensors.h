@@ -13,6 +13,7 @@ struct SensorData
     float airTemp = NAN;
     float airHum  = NAN;
     float waterTemp = NAN;
+    float vpd = NAN;
     unsigned long lastUpdate = 0;
 };
 
@@ -22,6 +23,7 @@ public:
     void begin();
     void loop();
     SensorData getData();
+    static float calcVPD(float tempC, float rh);
 
 private:
     void readAir();

@@ -127,6 +127,14 @@ void OLEDClass::render()
         display.println("%");
     }
 
+    // VPD
+    display.print("VPD: ");
+    if (isnan(s.vpd)) display.println("ERR");
+    else {
+        display.print(s.vpd, 2);
+        display.println("kPa");
+    }
+
     // Water Temp
     display.print("Water: ");
     if (isnan(s.waterTemp)) display.println("ERR");
