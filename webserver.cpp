@@ -250,6 +250,7 @@ void WebServerClass::setupRoutes() {
 
   // POST /schedule => on=HH&off=HH
   server.on("/schedule", HTTP_POST, [](AsyncWebServerRequest* req){
+    if (requireAuth(req)) return;
     if (!req->hasParam("on", true) || !req->hasParam("off", true)) {
       req->send(400, "application/json", "{\"error\":\"on/off required\"}");
       return;
@@ -268,6 +269,7 @@ void WebServerClass::setupRoutes() {
 
   // POST /controls/config -> update full control config
   server.on("/controls/config", HTTP_POST, [](AsyncWebServerRequest* req){
+    if (requireAuth(req)) return;
     auto clampHour = [](int x) -> uint8_t {
       if (x < 0) x = 0;
       if (x > 23) x = 23;
@@ -360,8 +362,19 @@ void WebServerClass::setupRoutes() {
         req->send(500, "application/json", "{\"error\":\"settings saved but could not be parsed\"}");
         return;
       }
+      // Apply ALL restored settings (mode, schedules, fan config)
       Relays.state.mode = s.mode;
-      Relays.setCustomSchedule(s.on_hour, s.off_hour);
+      ControlConfig c;
+      c.customOnHour  = s.on_hour;
+      c.customOffHour = s.off_hour;
+      c.vegOnHour     = s.veg_on_hour;
+      c.vegOffHour    = s.veg_off_hour;
+      c.flowerOnHour  = s.flower_on_hour;
+      c.flowerOffHour = s.flower_off_hour;
+      c.autoFan       = s.auto_fan;
+      c.fanOnTempC    = s.fan_on_temp_c;
+      c.fanOffTempC   = s.fan_off_temp_c;
+      Relays.setControlConfig(c);
       Relays.loop();
       req->send(200, "application/json", "{\"ok\":true}");
     },

@@ -125,7 +125,7 @@ void OLEDClass::render()
 
     char errBuf[12];
 
-    display.setCursor(0, 18);
+    display.setCursor(0, 16);
 
     // Air Temp
     display.print("Air: ");
