@@ -45,6 +45,17 @@ void SensorsClass::loop()
 }
 
 // ─────────────────────────────────────────────
+//  Compute Vapor Pressure Deficit (kPa)
+// ─────────────────────────────────────────────
+float SensorsClass::calcVPD(float tempC, float rh)
+{
+    if (isnan(tempC) || isnan(rh)) return NAN;
+    // Magnus-Tetens approximation: SVP in kPa, then VPD = SVP * (1 - RH/100)
+    float svp = 0.6108f * expf((17.27f * tempC) / (tempC + 237.3f));
+    return svp * (1.0f - (rh / 100.0f));
+}
+
+// ─────────────────────────────────────────────
 //  Read SHT4x (Air Temp + Humidity)
 // ─────────────────────────────────────────────
 void SensorsClass::readAir()
@@ -53,6 +64,7 @@ void SensorsClass::readAir()
     {
         current.airTemp = NAN;
         current.airHum  = NAN;
+        current.vpd     = NAN;
         return;
     }
 
@@ -61,6 +73,7 @@ void SensorsClass::readAir()
 
     current.airTemp = roundf(temp.temperature * 100.0f) / 100.0f;
     current.airHum  = roundf(hum.relative_humidity * 100.0f) / 100.0f;
+    current.vpd     = calcVPD(current.airTemp, current.airHum);
     current.lastUpdate = millis();
 }
 

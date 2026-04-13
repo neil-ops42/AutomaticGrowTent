@@ -66,10 +66,11 @@ void WebServerClass::loop() {
     if (getLocalTime(&t)) strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
     else strcpy(ts, "NO_TIME");
 
-    StaticJsonDocument<128> doc;
+    StaticJsonDocument<192> doc;
     doc["air_temp"]     = s.airTemp;   // ArduinoJson serializes NaN as null
     doc["air_humidity"] = s.airHum;
     doc["water_temp"]   = s.waterTemp;
+    doc["vpd"]          = s.vpd;
     doc["time"]         = ts;
 
     String json;
@@ -141,12 +142,12 @@ void WebServerClass::setupRoutes() {
     }
 
     // Recreate with CSV header that matches the logger
-    // Header: time,airTemp,airHum,waterTemp
+    // Header: time,airTemp,airHum,waterTemp,vpd,lightOn
     if (ok) {
         File f = LittleFS.open(HISTORY_FILE, FILE_WRITE);
         if (!f) ok = false;
         else {
-          f.println("time,airTemp,airHum,waterTemp"); // keep consistent with DataLog
+          f.println("time,airTemp,airHum,waterTemp,vpd,lightOn"); // keep consistent with DataLog
           f.close();
         }
     }
@@ -162,10 +163,11 @@ void WebServerClass::setupRoutes() {
     if (getLocalTime(&t)) strftime(ts, sizeof(ts), "%Y-%m-%d %H:%M:%S", &t);
     else strcpy(ts, "NO_TIME");
 
-    StaticJsonDocument<128> doc;
+    StaticJsonDocument<192> doc;
     doc["air_temp"]     = s.airTemp;   // ArduinoJson serializes NaN as null
     doc["air_humidity"] = s.airHum;
     doc["water_temp"]   = s.waterTemp;
+    doc["vpd"]          = s.vpd;
     doc["time"]         = ts;
 
     String json;

@@ -257,9 +257,11 @@ function onWsMessage(j) {
     document.getElementById("dash_water").innerText = parseFloat(j.water_temp).toFixed(1);
 
   if (j.air_temp !== undefined && j.air_humidity !== undefined) {
-    const vpd = calcVpd(parseFloat(j.air_temp), parseFloat(j.air_humidity));
+    const vpd = (j.vpd !== undefined && j.vpd !== null)
+      ? j.vpd
+      : calcVpd(parseFloat(j.air_temp), parseFloat(j.air_humidity));
     if (vpd !== null)
-      document.getElementById("dash_vpd").innerText = vpd.toFixed(2);
+      document.getElementById("dash_vpd").innerText = parseFloat(vpd).toFixed(2);
   }
 
   if ("relay1" in j) setIndicator("dash_light_dot", "dash_light_state", j.relay1);
@@ -573,7 +575,9 @@ function onWsMessage(j) {
     }
     chartWater.update();
 
-    const vpd = calcVpd(parseFloat(j.air_temp), parseFloat(j.air_humidity));
+    const vpd = (j.vpd !== undefined && j.vpd !== null)
+        ? j.vpd
+        : calcVpd(parseFloat(j.air_temp), parseFloat(j.air_humidity));
     if (vpd !== null) {
         chartVpd.data.labels.push(t);
         chartVpd.data.datasets[0].data.push(vpd);
@@ -616,7 +620,8 @@ function calcVpd(tempC, rh) {
 function parseCSV(text) {
     const lines = text.trim().split("\n");
 
-    // Expect header: time,airTemp,airHum,waterTemp
+    // Expect header: time,airTemp,airHum,waterTemp,vpd,lightOn
+    // Also handles legacy format: time,airTemp,airHum,waterTemp,lightOn (5 columns)
     const labels = [];
     const airTemp = [];
     const airHum = [];
@@ -640,10 +645,19 @@ function parseCSV(text) {
         airTemp.push(atVal);
         airHum.push(ahVal);
         waterTemp.push(wtVal);
-        vpd.push(calcVpd(atVal, ahVal));
-        const lo = (parts.length >= 5 && parts[4] !== "") ? parseInt(parts[4]) : NaN;
-        const loVal = isNaN(lo) ? null : (lo ? 1 : 0);
-        lightOn.push(loVal);
+
+        // New format (6+ columns) has firmware-computed VPD at index 4, lightOn at index 5.
+        // Legacy format (5 columns) has lightOn at index 4; fall back to client-side VPD calc.
+        if (parts.length >= 6) {
+            const vpdRaw = parts[4] === "" ? NaN : parseFloat(parts[4]);
+            vpd.push(isNaN(vpdRaw) ? null : vpdRaw);
+            const lo = parts[5] === "" ? NaN : parseInt(parts[5]);
+            lightOn.push(isNaN(lo) ? null : (lo ? 1 : 0));
+        } else {
+            vpd.push(calcVpd(atVal, ahVal));
+            const lo = (parts.length >= 5 && parts[4] !== "") ? parseInt(parts[4]) : NaN;
+            lightOn.push(isNaN(lo) ? null : (lo ? 1 : 0));
+        }
     }
 
     return { labels, airTemp, airHum, waterTemp, vpd, lightOn };
