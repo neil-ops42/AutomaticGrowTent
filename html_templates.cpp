@@ -254,7 +254,7 @@ function onWsMessage(j) {
     document.getElementById("dash_hum").innerText = j.air_humidity;
 
   if (j.water_temp !== undefined && j.water_temp !== null)
-    document.getElementById("dash_water").innerText = parseFloat(j.water_temp).toFixed(1);
+    document.getElementById("dash_water").innerText = parseFloat(j.water_temp).toFixed(2);
 
   if (j.air_temp !== undefined && j.air_humidity !== undefined) {
     const vpd = (j.vpd !== undefined && j.vpd !== null)
