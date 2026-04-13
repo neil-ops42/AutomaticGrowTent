@@ -182,7 +182,7 @@ Key constants in `config.h`:
 | `LOG_INTERVAL_MS` | `60000` | Sensor log interval (60 s) |
 | `AIR_SENSOR_INTERVAL_MS` | `5000` | SHT4x polling interval (5 s) |
 | `WATER_SENSOR_INTERVAL_MS` | `5000` | DS18B20 polling interval (5 s) |
-| `MAX_LOG_BYTES` | `102400` | Log rotation threshold (100 KB) |
+| `MAX_LOG_BYTES` | `409600` | Log rotation threshold (400 KB) |
 | `FAN_ON_TEMP_C` | `28.0` | Air temp threshold to turn fan ON (auto mode) |
 | `FAN_OFF_TEMP_C` | `26.0` | Air temp threshold to turn fan OFF (auto mode) — hysteresis prevents rapid cycling |
 
