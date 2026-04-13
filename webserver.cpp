@@ -305,12 +305,18 @@ void WebServerClass::setupRoutes() {
     bool timeChanged = false;
 
     if (req->hasParam("gmt_offset_sec", true)) {
-      s.gmt_offset_sec = req->getParam("gmt_offset_sec", true)->value().toInt();
-      timeChanged = true;
+      long v = req->getParam("gmt_offset_sec", true)->value().toInt();
+      if (v >= -43200 && v <= 50400) {  // UTC-12 to UTC+14
+        s.gmt_offset_sec = v;
+        timeChanged = true;
+      }
     }
     if (req->hasParam("daylight_offset_sec", true)) {
-      s.daylight_offset_sec = req->getParam("daylight_offset_sec", true)->value().toInt();
-      timeChanged = true;
+      int v = req->getParam("daylight_offset_sec", true)->value().toInt();
+      if (v == 0 || v == 3600) {  // Only valid DST values
+        s.daylight_offset_sec = v;
+        timeChanged = true;
+      }
     }
     if (req->hasParam("ntp_server", true)) {
       String v = req->getParam("ntp_server", true)->value();

@@ -232,7 +232,7 @@ void RelaysClass::setControlConfig(const ControlConfig& in)
 
     if (!isnan(in.fanOnTempC)) fanOnTempC = in.fanOnTempC;
     if (!isnan(in.fanOffTempC)) fanOffTempC = in.fanOffTempC;
-    if (!isnan(in.fanMinHysteresisC) && in.fanMinHysteresisC >= 0.1f) fanMinHysteresisC = in.fanMinHysteresisC;
+    if (!isnan(in.fanMinHysteresisC) && in.fanMinHysteresisC >= 0.1f && in.fanMinHysteresisC <= 10.0f) fanMinHysteresisC = in.fanMinHysteresisC;
     if (fanOffTempC >= fanOnTempC) fanOffTempC = fanOnTempC - fanMinHysteresisC;
     fanDebounceSec = in.fanDebounceSec;
 
