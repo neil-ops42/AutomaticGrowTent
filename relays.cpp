@@ -33,6 +33,8 @@ void RelaysClass::begin()
         flowerOffHour = s.flower_off_hour;
         fanOnTempC = s.fan_on_temp_c;
         fanOffTempC = s.fan_off_temp_c;
+        fanMinHysteresisC = s.fan_min_hysteresis_c;
+        fanDebounceSec = s.fan_debounce_sec;
         state.autoFan = s.auto_fan;
         state.mode    = s.mode;
     }
@@ -167,6 +169,7 @@ void RelaysClass::setCustomSchedule(uint8_t onH, uint8_t offH)
 
     // Persist to file with current mode
     AppSettings s;
+    Settings.load(s);  // load existing to preserve non-relay fields
     s.mode = state.mode;
     s.on_hour = customOnHour;
     s.off_hour = customOffHour;
@@ -177,6 +180,8 @@ void RelaysClass::setCustomSchedule(uint8_t onH, uint8_t offH)
     s.auto_fan = state.autoFan;
     s.fan_on_temp_c = fanOnTempC;
     s.fan_off_temp_c = fanOffTempC;
+    s.fan_min_hysteresis_c = fanMinHysteresisC;
+    s.fan_debounce_sec = fanDebounceSec;
     Settings.save(s);
 }
 
@@ -227,7 +232,9 @@ void RelaysClass::setControlConfig(const ControlConfig& in)
 
     if (!isnan(in.fanOnTempC)) fanOnTempC = in.fanOnTempC;
     if (!isnan(in.fanOffTempC)) fanOffTempC = in.fanOffTempC;
-    if (fanOffTempC >= fanOnTempC) fanOffTempC = fanOnTempC - FAN_MIN_HYSTERESIS_C;
+    if (!isnan(in.fanMinHysteresisC) && in.fanMinHysteresisC >= 0.1f && in.fanMinHysteresisC <= 10.0f) fanMinHysteresisC = in.fanMinHysteresisC;
+    if (fanOffTempC >= fanOnTempC) fanOffTempC = fanOnTempC - fanMinHysteresisC;
+    fanDebounceSec = in.fanDebounceSec;
 
     state.manualLightOverride = false;
     if (state.autoFan) state.manualFanOverride = false;
@@ -247,12 +254,16 @@ ControlConfig RelaysClass::getControlConfig()
     out.fanOnTempC = fanOnTempC;
     out.fanOffTempC = fanOffTempC;
     out.autoFan = state.autoFan;
+    out.fanMinHysteresisC = fanMinHysteresisC;
+    out.fanDebounceSec = fanDebounceSec;
     return out;
 }
 
 void RelaysClass::saveControlConfig()
 {
     AppSettings s;
+    // Load existing settings first to preserve non-relay fields
+    Settings.load(s);
     s.mode = state.mode;
     s.on_hour = customOnHour;
     s.off_hour = customOffHour;
@@ -263,6 +274,8 @@ void RelaysClass::saveControlConfig()
     s.auto_fan = state.autoFan;
     s.fan_on_temp_c = fanOnTempC;
     s.fan_off_temp_c = fanOffTempC;
+    s.fan_min_hysteresis_c = fanMinHysteresisC;
+    s.fan_debounce_sec = fanDebounceSec;
     Settings.save(s);
 }
 
@@ -289,9 +302,9 @@ void RelaysClass::updateFanAuto()
         }
     }
 
-    // Debounce: don't allow fan to toggle more than once every 30 seconds
-    constexpr unsigned long FAN_DEBOUNCE_MS = 30000UL;
-    if (millis() - lastFanToggleMs < FAN_DEBOUNCE_MS) return;
+    // Debounce: don't allow fan to toggle more than once per configured interval
+    unsigned long debounceMs = (unsigned long)fanDebounceSec * 1000UL;
+    if (millis() - lastFanToggleMs < debounceMs) return;
 
     if (!state.fan && s.airTemp >= fanOnTempC) {
         setRelay(2, true, /*fromSchedule=*/ true);

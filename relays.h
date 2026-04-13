@@ -35,6 +35,8 @@ struct ControlConfig {
     float fanOnTempC = FAN_ON_TEMP_C;
     float fanOffTempC = FAN_OFF_TEMP_C;
     bool autoFan = true;
+    float fanMinHysteresisC = FAN_MIN_HYSTERESIS_C;
+    uint16_t fanDebounceSec = FAN_DEBOUNCE_MS / 1000;
 };
 
 // ─────────────────────────────────────────────
@@ -83,6 +85,8 @@ private:
     uint8_t flowerOffHour = FLOWER_OFF_HOUR;
     float fanOnTempC      = FAN_ON_TEMP_C;
     float fanOffTempC     = FAN_OFF_TEMP_C;
+    float fanMinHysteresisC = FAN_MIN_HYSTERESIS_C;
+    uint16_t fanDebounceSec = FAN_DEBOUNCE_MS / 1000;
 
     // Fan debounce: tracks last time the fan relay was toggled
     unsigned long lastFanToggleMs = 0;

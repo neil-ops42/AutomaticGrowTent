@@ -9,6 +9,7 @@
 #include "webserver.h"
 #include "html_templates.h"
 #include "settings.h"
+#include "datalog.h"
 
 WebServerClass WebServer;
 
@@ -286,22 +287,99 @@ void WebServerClass::setupRoutes() {
     if (req->hasParam("auto_fan", true))      c.autoFan = parseBoolStr(req->getParam("auto_fan", true)->value());
     if (req->hasParam("fan_on_temp", true))   c.fanOnTempC = req->getParam("fan_on_temp", true)->value().toFloat();
     if (req->hasParam("fan_off_temp", true))  c.fanOffTempC = req->getParam("fan_off_temp", true)->value().toFloat();
-    if (c.fanOffTempC >= c.fanOnTempC) c.fanOffTempC = c.fanOnTempC - FAN_MIN_HYSTERESIS_C;
+    if (req->hasParam("fan_min_hysteresis", true)) {
+      float v = req->getParam("fan_min_hysteresis", true)->value().toFloat();
+      if (v >= 0.1f && v <= 10.0f) c.fanMinHysteresisC = v;
+    }
+    if (req->hasParam("fan_debounce_sec", true)) {
+      int v = req->getParam("fan_debounce_sec", true)->value().toInt();
+      if (v >= 0 && v <= 600) c.fanDebounceSec = (uint16_t)v;
+    }
+    if (c.fanOffTempC >= c.fanOnTempC) c.fanOffTempC = c.fanOnTempC - c.fanMinHysteresisC;
 
     Relays.setControlConfig(c);
+
+    // Handle non-relay settings (timezone, NTP, intervals, logging)
+    AppSettings s;
+    Settings.load(s);
+    bool timeChanged = false;
+
+    if (req->hasParam("gmt_offset_sec", true)) {
+      long v = req->getParam("gmt_offset_sec", true)->value().toInt();
+      if (v >= -43200 && v <= 50400) {  // UTC-12 to UTC+14
+        s.gmt_offset_sec = v;
+        timeChanged = true;
+      }
+    }
+    if (req->hasParam("daylight_offset_sec", true)) {
+      int v = req->getParam("daylight_offset_sec", true)->value().toInt();
+      if (v == 0 || v == 3600) {  // Only valid DST values
+        s.daylight_offset_sec = v;
+        timeChanged = true;
+      }
+    }
+    if (req->hasParam("ntp_server", true)) {
+      String v = req->getParam("ntp_server", true)->value();
+      v.trim();
+      if (v.length() > 0 && v.length() < sizeof(s.ntp_server)) {
+        strncpy(s.ntp_server, v.c_str(), sizeof(s.ntp_server) - 1);
+        s.ntp_server[sizeof(s.ntp_server) - 1] = '\0';
+        timeChanged = true;
+      }
+    }
+    if (req->hasParam("air_sensor_interval_sec", true)) {
+      int v = req->getParam("air_sensor_interval_sec", true)->value().toInt();
+      if (v >= 1 && v <= 3600) {
+        s.air_sensor_interval_sec = (uint16_t)v;
+        Sensors.setAirInterval((unsigned long)v * 1000UL);
+      }
+    }
+    if (req->hasParam("water_sensor_interval_sec", true)) {
+      int v = req->getParam("water_sensor_interval_sec", true)->value().toInt();
+      if (v >= 1 && v <= 3600) {
+        s.water_sensor_interval_sec = (uint16_t)v;
+        Sensors.setWaterInterval((unsigned long)v * 1000UL);
+      }
+    }
+    if (req->hasParam("log_interval_sec", true)) {
+      int v = req->getParam("log_interval_sec", true)->value().toInt();
+      if (v >= 10 && v <= 3600) {
+        s.log_interval_sec = (uint16_t)v;
+        DataLog.setLogInterval((unsigned long)v * 1000UL);
+      }
+    }
+    if (req->hasParam("max_log_kb", true)) {
+      int v = req->getParam("max_log_kb", true)->value().toInt();
+      if (v >= 10 && v <= 4096) {
+        s.max_log_kb = (uint16_t)v;
+        DataLog.setMaxLogBytes((size_t)v * 1024UL);
+      }
+    }
+
+    Settings.save(s);
+
+    // Reconfigure NTP if timezone or server changed
+    if (timeChanged) {
+      runtimeGmtOffsetSec = s.gmt_offset_sec;
+      runtimeDaylightOffsetSec = s.daylight_offset_sec;
+      strncpy(runtimeNtpServer, s.ntp_server, sizeof(runtimeNtpServer) - 1);
+      runtimeNtpServer[sizeof(runtimeNtpServer) - 1] = '\0';
+      configTime(runtimeGmtOffsetSec, runtimeDaylightOffsetSec, runtimeNtpServer);
+    }
+
     Relays.loop();
     WebServer.broadcastRelayState();
     req->send(200, "application/json", "{\"ok\":true}");
   });
 
-  // GET /settings -> {"mode":"veg|flower|custom","on_hour":7,"off_hour":1}
+  // GET /settings -> all current settings as JSON
   server.on("/settings", HTTP_GET, [](AsyncWebServerRequest* req){
     uint8_t onH, offH;
     Relays.getCustomSchedule(onH, offH);
     const char* modeStr = Relays.state.mode == MODE_VEG    ? "veg"
                         : Relays.state.mode == MODE_FLOWER ? "flower"
                                                            : "custom";
-    StaticJsonDocument<256> doc;
+    StaticJsonDocument<512> doc;
     ControlConfig cfg = Relays.getControlConfig();
     doc["mode"]     = modeStr;
     doc["on_hour"]  = onH;
@@ -313,6 +391,19 @@ void WebServerClass::setupRoutes() {
     doc["auto_fan"] = cfg.autoFan;
     doc["fan_on_temp_c"] = cfg.fanOnTempC;
     doc["fan_off_temp_c"] = cfg.fanOffTempC;
+    doc["fan_min_hysteresis_c"] = cfg.fanMinHysteresisC;
+    doc["fan_debounce_sec"] = cfg.fanDebounceSec;
+
+    // Load full settings for non-relay fields
+    AppSettings s;
+    Settings.load(s);
+    doc["gmt_offset_sec"] = s.gmt_offset_sec;
+    doc["daylight_offset_sec"] = s.daylight_offset_sec;
+    doc["ntp_server"] = s.ntp_server;
+    doc["air_sensor_interval_sec"] = s.air_sensor_interval_sec;
+    doc["water_sensor_interval_sec"] = s.water_sensor_interval_sec;
+    doc["log_interval_sec"] = s.log_interval_sec;
+    doc["max_log_kb"] = s.max_log_kb;
 
     String json;
     serializeJson(doc, json);
@@ -374,7 +465,21 @@ void WebServerClass::setupRoutes() {
       c.autoFan       = s.auto_fan;
       c.fanOnTempC    = s.fan_on_temp_c;
       c.fanOffTempC   = s.fan_off_temp_c;
+      c.fanMinHysteresisC = s.fan_min_hysteresis_c;
+      c.fanDebounceSec    = s.fan_debounce_sec;
       Relays.setControlConfig(c);
+
+      // Apply non-relay settings
+      Sensors.setAirInterval((unsigned long)s.air_sensor_interval_sec * 1000UL);
+      Sensors.setWaterInterval((unsigned long)s.water_sensor_interval_sec * 1000UL);
+      DataLog.setLogInterval((unsigned long)s.log_interval_sec * 1000UL);
+      DataLog.setMaxLogBytes((size_t)s.max_log_kb * 1024UL);
+      runtimeGmtOffsetSec = s.gmt_offset_sec;
+      runtimeDaylightOffsetSec = s.daylight_offset_sec;
+      strncpy(runtimeNtpServer, s.ntp_server, sizeof(runtimeNtpServer) - 1);
+      runtimeNtpServer[sizeof(runtimeNtpServer) - 1] = '\0';
+      configTime(runtimeGmtOffsetSec, runtimeDaylightOffsetSec, runtimeNtpServer);
+
       Relays.loop();
       req->send(200, "application/json", "{\"ok\":true}");
     },
@@ -418,21 +523,23 @@ void WebServerClass::setupWebSocket() {
       const char* modeStr = r.mode == MODE_VEG    ? "veg"
                           : r.mode == MODE_FLOWER  ? "flower"
                                                    : "custom";
-      StaticJsonDocument<256> doc;
+      StaticJsonDocument<512> doc;
       ControlConfig cfg = Relays.getControlConfig();
-      doc["relay1"]          = r.light;
-      doc["relay2"]          = r.fan;
-      doc["mode"]            = modeStr;
-      doc["on_hour"]         = onH;
-      doc["off_hour"]        = offH;
-      doc["veg_on_hour"]     = cfg.vegOnHour;
-      doc["veg_off_hour"]    = cfg.vegOffHour;
-      doc["flower_on_hour"]  = cfg.flowerOnHour;
-      doc["flower_off_hour"] = cfg.flowerOffHour;
-      doc["auto_fan"]        = cfg.autoFan;
-      doc["fan_on_temp_c"]   = cfg.fanOnTempC;
-      doc["fan_off_temp_c"]  = cfg.fanOffTempC;
-      doc["manual_override"] = r.manualLightOverride;
+      doc["relay1"]              = r.light;
+      doc["relay2"]              = r.fan;
+      doc["mode"]                = modeStr;
+      doc["on_hour"]             = onH;
+      doc["off_hour"]            = offH;
+      doc["veg_on_hour"]         = cfg.vegOnHour;
+      doc["veg_off_hour"]        = cfg.vegOffHour;
+      doc["flower_on_hour"]      = cfg.flowerOnHour;
+      doc["flower_off_hour"]     = cfg.flowerOffHour;
+      doc["auto_fan"]            = cfg.autoFan;
+      doc["fan_on_temp_c"]       = cfg.fanOnTempC;
+      doc["fan_off_temp_c"]      = cfg.fanOffTempC;
+      doc["fan_min_hysteresis_c"]= cfg.fanMinHysteresisC;
+      doc["fan_debounce_sec"]    = cfg.fanDebounceSec;
+      doc["manual_override"]     = r.manualLightOverride;
       String json;
       serializeJson(doc, json);
       client->text(json);
@@ -498,21 +605,23 @@ void WebServerClass::broadcastRelayState() {
                       : r.mode == MODE_FLOWER  ? "flower"
                                                : "custom";
 
-  StaticJsonDocument<256> doc;
+  StaticJsonDocument<512> doc;
   ControlConfig cfg = Relays.getControlConfig();
-  doc["relay1"]           = r.light;
-  doc["relay2"]           = r.fan;
-  doc["mode"]             = modeStr;
-  doc["on_hour"]          = onH;
-  doc["off_hour"]         = offH;
-  doc["veg_on_hour"]      = cfg.vegOnHour;
-  doc["veg_off_hour"]     = cfg.vegOffHour;
-  doc["flower_on_hour"]   = cfg.flowerOnHour;
-  doc["flower_off_hour"]  = cfg.flowerOffHour;
-  doc["auto_fan"]         = cfg.autoFan;
-  doc["fan_on_temp_c"]    = cfg.fanOnTempC;
-  doc["fan_off_temp_c"]   = cfg.fanOffTempC;
-  doc["manual_override"]  = r.manualLightOverride;
+  doc["relay1"]              = r.light;
+  doc["relay2"]              = r.fan;
+  doc["mode"]                = modeStr;
+  doc["on_hour"]             = onH;
+  doc["off_hour"]            = offH;
+  doc["veg_on_hour"]         = cfg.vegOnHour;
+  doc["veg_off_hour"]        = cfg.vegOffHour;
+  doc["flower_on_hour"]      = cfg.flowerOnHour;
+  doc["flower_off_hour"]     = cfg.flowerOffHour;
+  doc["auto_fan"]            = cfg.autoFan;
+  doc["fan_on_temp_c"]       = cfg.fanOnTempC;
+  doc["fan_off_temp_c"]      = cfg.fanOffTempC;
+  doc["fan_min_hysteresis_c"]= cfg.fanMinHysteresisC;
+  doc["fan_debounce_sec"]    = cfg.fanDebounceSec;
+  doc["manual_override"]     = r.manualLightOverride;
 
   String json;
   serializeJson(doc, json);

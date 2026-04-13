@@ -27,6 +27,10 @@ public:
     SensorData getData();
     static float calcVPD(float tempC, float rh);
 
+    // Runtime-configurable intervals (in milliseconds)
+    void setAirInterval(unsigned long ms)   { airIntervalMs = ms; }
+    void setWaterInterval(unsigned long ms)  { waterIntervalMs = ms; }
+
 private:
     void readAir();
     void readWater();
@@ -42,6 +46,10 @@ private:
     // Timers
     unsigned long lastAirRead = 0;
     unsigned long lastWaterRead = 0;
+
+    // Configurable intervals (default from config.h)
+    unsigned long airIntervalMs   = AIR_SENSOR_INTERVAL_MS;
+    unsigned long waterIntervalMs = WATER_SENSOR_INTERVAL_MS;
 
     // Latest sensor values
     SensorData current;
