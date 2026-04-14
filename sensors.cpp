@@ -62,14 +62,35 @@ void SensorsClass::readAir()
 {
     if (!sht4_ok)
     {
-        current.airTemp = NAN;
-        current.airHum  = NAN;
-        current.vpd     = NAN;
-        return;
+        // Sensor failed previously — attempt reinitialization before giving up
+        sht4_ok = sht4.begin(&Wire);
+        if (sht4_ok)
+        {
+            sht4.setPrecision(SHT4X_HIGH_PRECISION);
+            sht4.setHeater(SHT4X_NO_HEATER);
+            Serial.println("SHT4x reinitialized successfully");
+        }
+        else
+        {
+            Serial.println("SHT4x reinitialization failed");
+            current.airTemp = NAN;
+            current.airHum  = NAN;
+            current.vpd     = NAN;
+            return;
+        }
     }
 
     sensors_event_t hum, temp;
-    sht4.getEvent(&hum, &temp);
+    if (!sht4.getEvent(&hum, &temp))
+    {
+        // I2C read failed — store NaN and allow reinitialization on next interval
+        sht4_ok = false;
+        current.airTemp = NAN;
+        current.airHum  = NAN;
+        current.vpd     = NAN;
+        Serial.println("SHT4x read failed — will attempt reinitialization on next interval");
+        return;
+    }
 
     current.airTemp = roundf(temp.temperature * 100.0f) / 100.0f;
     current.airHum  = roundf(hum.relative_humidity * 100.0f) / 100.0f;
