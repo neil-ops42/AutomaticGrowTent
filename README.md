@@ -151,8 +151,18 @@ ESP32 GPIO 26       ──── Relay module IN2  (Fan)
 | OTA Update | `/update` | Upload firmware `.bin` over Wi-Fi (auth required) |
 | Settings Backup | `/settings/backup` | `GET` — download current settings file (auth required) |
 | Settings Restore | `/settings/restore` | `POST` — upload a settings file to restore (auth required) |
-| Settings Reset | `/settings/reset` | `POST` — reset to defaults (auth required) |
+| Settings Reset | `/settings/reset` | `POST` — reset to defaults and reboot (auth required) |
 | Archived log | `/history_old.csv` | Previous log file after rotation |
+| Sensor snapshot | `/data` | `GET` — current sensor readings as JSON |
+| All settings | `/settings` | `GET` — current settings as JSON |
+| Device metrics | `/api/device` | `GET` — RAM, storage, CPU, Wi-Fi info as JSON |
+| History reset | `/history/reset` | `POST` — clear the sensor log (auth required) |
+| Light ON | `/relay1/on` | `POST` — turn grow light on (auth required) |
+| Light OFF | `/relay1/off` | `POST` — turn grow light off (auth required) |
+| Fan ON | `/relay2/on` | `POST` — turn exhaust fan on (auth required) |
+| Fan OFF | `/relay2/off` | `POST` — turn exhaust fan off (auth required) |
+| Custom schedule | `/schedule` | `POST` `on=HH&off=HH` — set custom light schedule (auth required) |
+| Full config | `/controls/config` | `POST` — update schedules, fan thresholds, timezone, intervals (auth required) |
 
 Real-time relay and sensor state is pushed to all connected clients over a **WebSocket** at `/ws`.
 
@@ -164,6 +174,10 @@ The following endpoints are protected by **HTTP Basic Authentication**. Credenti
 - `/settings/reset`
 - `/settings/restore`
 - `/settings/backup`
+- `/history/reset`
+- `/relay1/on` · `/relay1/off` · `/relay2/on` · `/relay2/off`
+- `/schedule`
+- `/controls/config`
 
 Use a strong, unique password in `secrets.h` — the placeholder `changeme` in `secrets.h.example` is intentionally weak.
 
@@ -184,22 +198,24 @@ Key constants in `config.h`:
 | `WATER_SENSOR_INTERVAL_MS` | `5000` | DS18B20 polling interval (5 s) |
 | `MAX_LOG_BYTES` | `409600` | Log rotation threshold (400 KB) |
 | `FAN_ON_TEMP_C` | `28.0` | Air temp threshold to turn fan ON (auto mode) |
-| `FAN_OFF_TEMP_C` | `26.0` | Air temp threshold to turn fan OFF (auto mode) — hysteresis prevents rapid cycling |
+| `FAN_OFF_TEMP_C` | `26.0` | Air temp threshold to turn fan OFF (auto mode) |
+| `FAN_MIN_HYSTERESIS_C` | `0.5` | Minimum gap enforced between `FAN_ON_TEMP_C` and `FAN_OFF_TEMP_C` |
+| `FAN_DEBOUNCE_MS` | `30000` | Minimum time (ms) the fan must stay in its current state before switching |
 
-Most control defaults are now editable from the **Controls** page at runtime and persisted to flash: custom/veg/flower schedule hours, auto-fan toggle, and fan ON/OFF temperature thresholds.
+Most control defaults are now editable from the **Controls** page at runtime and persisted to flash: custom/veg/flower schedule hours, auto-fan toggle, fan ON/OFF temperature thresholds, minimum hysteresis, and debounce period.
 
 ### Fan control
 
 The exhaust fan (Relay 2) supports two modes selectable from the Controls page:
 
-- **Auto** — turns the fan on when air temperature exceeds `FAN_ON_TEMP_C` and off again once it drops below `FAN_OFF_TEMP_C` (hysteresis prevents rapid cycling). The manual override is automatically cleared when auto-control activates due to temperature changes.
+- **Auto** — turns the fan on when air temperature exceeds `FAN_ON_TEMP_C` and off again once it drops below `FAN_OFF_TEMP_C`. A minimum hysteresis gap (`FAN_MIN_HYSTERESIS_C`) is enforced between the two thresholds, and a debounce timer (`FAN_DEBOUNCE_MS`) prevents rapid cycling by requiring the fan to remain in its current state for at least that long before switching. The manual override is automatically cleared when auto-control activates due to a temperature transition.
 - **Manual** — toggle the relay directly from the Controls page; the manual override persists until auto-control clears it at the next temperature transition.
 
 ---
 
 ## Data Logging
 
-Sensor readings are appended to `/history.csv` on LittleFS every `LOG_INTERVAL_MS` (default 60 s). When the file exceeds `MAX_LOG_BYTES` (default 100 KB), it is rotated:
+Sensor readings are appended to `/history.csv` on LittleFS every `LOG_INTERVAL_MS` (default 60 s). When the file exceeds `MAX_LOG_BYTES` (default 400 KB), it is rotated:
 
 1. The current `/history.csv` is copied to `/history_old.csv` (overwriting any previous archive)
 2. A new `/history.csv` is started
