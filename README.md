@@ -38,7 +38,7 @@ ESP32 firmware for monitoring and controlling a small indoor grow tent: reads en
 | `relays.h / .cpp` | Relay control, grow-mode scheduling, fan auto-control |
 | `settings.h / .cpp` | Persistent settings (LittleFS load/save) |
 | `datalog.h / .cpp` | CSV data logger (LittleFS) |
-| `ui_oled.h / .cpp` | OLED display rendering + Wi-Fi icon |
+| `ui_oled.h / .cpp` | OLED display rendering |
 | `webserver.h / .cpp` | Async HTTP server + WebSocket handler |
 | `html_templates.h / .cpp` | HTML pages stored in PROGMEM |
 | `platformio.ini` | PlatformIO project config and library dependencies |
