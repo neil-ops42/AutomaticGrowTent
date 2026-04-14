@@ -572,6 +572,7 @@ void WebServerClass::setupWebSocket() {
       // Require explicit confirmation command before restarting to prevent
       // accidental or malicious reboots from a casual WebSocket message.
       if (strcmp(cmd, "device_restart_confirm") == 0) {
+        client->text("{\"restarting\":true}");
         restartRequested = true;  // handled safely in main loop()
       }
 

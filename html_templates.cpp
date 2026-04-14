@@ -94,6 +94,9 @@ function connectWS() {
             document.getElementById("fanIcon").className   = "icon " + (j.relay2 ? "on" : "off");
         }
 
+        // Restart confirmation from server
+        if (j.restarting) { alert('Device is restarting...'); }
+
         // Dispatch to page-level handler if defined
         if (typeof onWsMessage === "function") onWsMessage(j);
     };
@@ -662,7 +665,6 @@ fetch('/settings').then(r=>r.json()).then(d=>{
 function restartDevice(){
   if(!confirm('Restart the device? It will take a few seconds to come back online.'))return;
   wsSend('device_restart_confirm');
-  alert('Device is restarting...');
 }
 
 function resetSettings(){
