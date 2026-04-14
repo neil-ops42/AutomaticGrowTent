@@ -1,4 +1,4 @@
-# Grow Tent Automation (ESP32)
+# Automatic Grow Tent (ESP32)
 
 ESP32 firmware for monitoring and controlling a small indoor grow tent: reads environmental sensors, controls relays for grow lights and circulation fan, logs data to LittleFS, and serves a real-time web dashboard with WebSocket updates — all on a single microcontroller.
 
@@ -31,7 +31,7 @@ ESP32 firmware for monitoring and controlling a small indoor grow tent: reads en
 
 | File / Module | Purpose |
 |---|---|
-| `GrowTentAutomation.ino` | Main sketch — `setup()`, `loop()`, Wi-Fi, NTP |
+| `AutomaticGrowTent.ino` | Main sketch — `setup()`, `loop()`, Wi-Fi, NTP |
 | `config.h` | Pin definitions, timing constants, defaults |
 | `secrets.h.example` | Template — copy to `secrets.h` and fill in credentials |
 | `sensors.h / .cpp` | SHT4x + DS18B20 reading logic |
@@ -91,8 +91,8 @@ ESP32 GPIO 26       ──── Relay module IN2  (Fan)
 2. Clone and open the project:
 
    ```bash
-   git clone https://github.com/neiltuttle-ops/GrowTentAutomation.git
-   cd GrowTentAutomation
+   git clone https://github.com/neil-ops42/AutomaticGrowTent.git
+   cd AutomaticGrowTent
    ```
 
 3. Copy the secrets template and fill in your credentials:
@@ -123,7 +123,7 @@ ESP32 GPIO 26       ──── Relay module IN2  (Fan)
    - `ElegantOTA`
    - `ArduinoJson`
 4. Copy `secrets.h.example` to `secrets.h` and fill in your credentials (same values as above)
-5. Open `GrowTentAutomation.ino`, select your ESP32 board and port, then click **Upload**
+5. Open `AutomaticGrowTent.ino`, select your ESP32 board and port, then click **Upload**
 6. Open **Serial Monitor** at **115200 baud** to find the assigned IP address
 
 ---

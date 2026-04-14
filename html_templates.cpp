@@ -17,7 +17,7 @@ const char HTML_HEADER[] PROGMEM = R"rawliteral(
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>GrowTentAutomation</title>
+<title>Automatic Grow Tent</title>
 <style>
   body{font-family:Arial;margin:20px;transition:background .3s,color .3s}
   nav a{margin-right:15px;font-weight:bold;text-decoration:none}
@@ -36,7 +36,7 @@ const char HTML_HEADER[] PROGMEM = R"rawliteral(
 
 <div class="theme-btn" onclick="toggleTheme()">Toggle Theme</div>
 
-<h1>GrowTentAutomation</h1>
+<h1>Automatic Grow Tent</h1>
 <nav>
   <a href="/">Dashboard</a>
   <a href="/controls">Controls</a>
