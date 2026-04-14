@@ -18,7 +18,7 @@ ESP32 firmware for monitoring and controlling a small indoor grow tent: reads en
 - **UI / observability**
   - Responsive web dashboard (live readings, charts, controls, history)
   - **WebSocket** live updates to all connected clients
-  - **SSD1306 128×64 OLED** status display (readings, relay states, Wi-Fi icon)
+  - **SSD1306 128×64 OLED** status display (readings, relay states)
 - **Reliability & maintenance**
   - **LittleFS** CSV logging (`/history.csv`) with automatic rotation
   - **NTP** time sync with configurable UTC offset and DST
