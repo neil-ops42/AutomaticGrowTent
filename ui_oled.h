@@ -8,13 +8,6 @@
 #include "sensors.h"
 #include "relays.h"
 
-// WiFi signal icons (16×16)
-extern const unsigned char wifi_4bar[];
-extern const unsigned char wifi_3bar[];
-extern const unsigned char wifi_2bar[];
-extern const unsigned char wifi_1bar[];
-extern const unsigned char wifi_0bar[];
-
 class OLEDClass
 {
 public:
@@ -23,7 +16,6 @@ public:
 
 private:
     void render();
-    void drawWiFiIcon(int rssi);
 
     unsigned long lastRefresh = 0;
     const unsigned long REFRESH_INTERVAL_MS = 1000;
