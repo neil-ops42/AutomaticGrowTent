@@ -1,6 +1,6 @@
 # Grow Tent Automation (ESP32)
 
-ESP32 firmware for monitoring and controlling a small indoor grow tent: reads environmental sensors, controls relays for grow lights and exhaust fan, logs data to LittleFS, and serves a real-time web dashboard with WebSocket updates — all on a single microcontroller.
+ESP32 firmware for monitoring and controlling a small indoor grow tent: reads environmental sensors, controls relays for grow lights and circulation fan, logs data to LittleFS, and serves a real-time web dashboard with WebSocket updates — all on a single microcontroller.
 
 ---
 
@@ -11,7 +11,7 @@ ESP32 firmware for monitoring and controlling a small indoor grow tent: reads en
   - Water / reservoir temperature: **DS18B20** (OneWire)
 - **Relay control**
   - Relay 1: **Grow light** — scheduled (Veg 18/6, Flower 12/12, or Custom)
-  - Relay 2: **Exhaust fan** — temperature-based auto-control with manual override
+  - Relay 2: **Circulation fan** — temperature-based auto-control with manual override
 - **Scheduling**
   - Built-in grow modes: **Veg (18/6)**, **Flower (12/12)**, **Custom**
   - Custom schedule editable at runtime via web UI; persisted to flash
@@ -159,8 +159,8 @@ ESP32 GPIO 26       ──── Relay module IN2  (Fan)
 | History reset | `/history/reset` | `POST` — clear the sensor log (auth required) |
 | Light ON | `/relay1/on` | `POST` — turn grow light on (auth required) |
 | Light OFF | `/relay1/off` | `POST` — turn grow light off (auth required) |
-| Fan ON | `/relay2/on` | `POST` — turn exhaust fan on (auth required) |
-| Fan OFF | `/relay2/off` | `POST` — turn exhaust fan off (auth required) |
+| Fan ON | `/relay2/on` | `POST` — turn circulation fan on (auth required) |
+| Fan OFF | `/relay2/off` | `POST` — turn circulation fan off (auth required) |
 | Custom schedule | `/schedule` | `POST` `on=HH&off=HH` — set custom light schedule (auth required) |
 | Full config | `/controls/config` | `POST` — update schedules, fan thresholds, timezone, intervals (auth required) |
 
@@ -206,7 +206,7 @@ Most control defaults are now editable from the **Controls** page at runtime and
 
 ### Fan control
 
-The exhaust fan (Relay 2) supports two modes selectable from the Controls page:
+The circulation fan (Relay 2) supports two modes selectable from the Controls page:
 
 - **Auto** — turns the fan on when air temperature exceeds `FAN_ON_TEMP_C` and off again once it drops below `FAN_OFF_TEMP_C`. A minimum hysteresis gap (`FAN_MIN_HYSTERESIS_C`) is enforced between the two thresholds, and a debounce timer (`FAN_DEBOUNCE_MS`) prevents rapid cycling by requiring the fan to remain in its current state for at least that long before switching. The manual override is automatically cleared when auto-control activates due to a temperature transition.
 - **Manual** — toggle the relay directly from the Controls page; the manual override persists until auto-control clears it at the next temperature transition.
