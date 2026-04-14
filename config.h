@@ -64,14 +64,6 @@ constexpr unsigned long WATER_SENSOR_INTERVAL_MS = 5000;        // 5 sec
 constexpr size_t        MAX_LOG_BYTES            = 400UL * 1024UL; // 400 KB log size limit
 
 // ─────────────────────────────────────────────
-// WIFI SIGNAL THRESHOLDS (RSSI)
-// ─────────────────────────────────────────────
-#define WIFI_LVL_4 -55
-#define WIFI_LVL_3 -67
-#define WIFI_LVL_2 -70
-#define WIFI_LVL_1 -80
-
-// ─────────────────────────────────────────────
 // FAN AUTO-CONTROL THRESHOLDS
 // ─────────────────────────────────────────────
 constexpr float FAN_ON_TEMP_C  = 28.0;   // Turn fan ON above this temp
