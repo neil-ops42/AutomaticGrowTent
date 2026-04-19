@@ -804,9 +804,9 @@ const char HTML_HISTORY[] PROGMEM = R"rawliteral(
 <div style="margin-bottom:12px;">
   <label id="historySourceLabel" for="historySourceSlider"><strong>Data source</strong></label>
   <div style="display:flex;align-items:center;gap:10px;max-width:420px;">
-    <span><code>history.csv</code></span>
+    <span aria-label="Slider value 0 means history.csv"><code>history.csv</code></span>
     <input id="historySourceSlider" type="range" min="0" max="1" step="1" value="0" style="flex:1;" aria-labelledby="historySourceLabel">
-    <span><code>history_old.csv</code></span>
+    <span aria-label="Slider value 1 means history_old.csv"><code>history_old.csv</code></span>
   </div>
 </div>
 
@@ -908,6 +908,7 @@ function makeChart(id, label, color, labels, data, stepped=false, y01=false) {
 const histSourceSlider = document.getElementById("historySourceSlider");
 const histSourceText = document.getElementById("histSourceText");
 const historyCharts = [];
+histSourceSlider.setAttribute("aria-valuetext", "history.csv");
 
 function selectedHistorySource() {
   return histSourceSlider.value === "1"
