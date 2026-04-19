@@ -805,7 +805,7 @@ const char HTML_HISTORY[] PROGMEM = R"rawliteral(
   <label id="historySourceLabel" for="historySourceSlider"><strong>Data source</strong></label>
   <div style="display:flex;align-items:center;gap:10px;max-width:420px;">
     <span><code>history.csv</code></span>
-    <input id="historySourceSlider" type="range" min="0" max="1" step="1" value="0" style="flex:1;" aria-labelledby="historySourceLabel">
+    <input id="historySourceSlider" type="range" min="0" max="1" step="1" value="0" style="flex:1;" aria-labelledby="historySourceLabel" aria-valuemin="0" aria-valuemax="1">
     <span><code>history_old.csv</code></span>
   </div>
 </div>
