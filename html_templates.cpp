@@ -937,6 +937,7 @@ function hideHistoryError() {
 async function loadHistoryFromSelectedSource() {
   const src = selectedHistorySource();
   histSourceText.textContent = src.name;
+  histSourceSlider.setAttribute("aria-valuetext", src.name);
   hideHistoryError();
   clearHistoryCharts();
 
