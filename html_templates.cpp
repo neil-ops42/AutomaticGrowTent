@@ -801,9 +801,18 @@ function onWsMessage(j) {
   HISTORY CONTENT (CSV → Chart.js)
 ─────────────────────────────────────────────*/
 const char HTML_HISTORY[] PROGMEM = R"rawliteral(
+<div style="margin-bottom:12px;">
+  <label for="historySourceSlider"><strong>Data source</strong></label>
+  <div style="display:flex;align-items:center;gap:10px;max-width:420px;">
+    <span><code>history.csv</code></span>
+    <input id="historySourceSlider" type="range" min="0" max="1" step="1" value="0" style="flex:1;" aria-label="Select history CSV source">
+    <span><code>history_old.csv</code></span>
+  </div>
+</div>
+
 <h3>Historical Sensor Charts</h3>
 
-<p>Data loaded from <code>history.csv</code></p>
+<p>Data loaded from <code id="histSourceText">history.csv</code></p>
 
 <p id="histError" style="color:red;display:none;"></p>
 <canvas id="hist_air_temp" height="120"></canvas>
@@ -896,38 +905,72 @@ function makeChart(id, label, color, labels, data, stepped=false, y01=false) {
   });
 }
 
-fetch("/history.csv")
-    .then(r => r.text())
-    .then(text => {
-        const hist = parseCSV(text);
+const histSourceSlider = document.getElementById("historySourceSlider");
+const histSourceText = document.getElementById("histSourceText");
+const historyCharts = [];
 
-        if (hist.labels.length === 0) {
-            const el = document.getElementById("histError");
-            el.textContent = "No history data available yet.";
-            el.style.display = "";
-            return;
-        }
+function selectedHistorySource() {
+  return histSourceSlider.value === "1"
+    ? { path: "/history_old.csv", name: "history_old.csv" }
+    : { path: "/history.csv", name: "history.csv" };
+}
 
-        makeChart("hist_air_temp", "Air Temp (°C)", "red",
-                  hist.labels, hist.airTemp);
+function clearHistoryCharts() {
+  while (historyCharts.length) {
+    const chart = historyCharts.pop();
+    chart.destroy();
+  }
+}
 
-        makeChart("hist_air_hum", "Air Humidity (%)", "blue",
-                  hist.labels, hist.airHum);
+function showHistoryError(message) {
+  const el = document.getElementById("histError");
+  el.textContent = message;
+  el.style.display = "";
+}
 
-        makeChart("hist_water", "Water Temp (°C)", "green",
-                  hist.labels, hist.waterTemp);
+function hideHistoryError() {
+  const el = document.getElementById("histError");
+  el.textContent = "";
+  el.style.display = "none";
+}
 
-        makeChart("hist_vpd", "VPD (kPa)", "purple",
-                  hist.labels, hist.vpd);
+async function loadHistoryFromSelectedSource() {
+  const src = selectedHistorySource();
+  histSourceText.textContent = src.name;
+  hideHistoryError();
+  clearHistoryCharts();
 
-        makeChart("hist_light", "Light (1=On, 0=Off)", "orange",
-          hist.labels, hist.lightOn, /*stepped=*/true, /*y01=*/true);
-    })
-    .catch(err => {
-        const el = document.getElementById("histError");
-        el.textContent = "Failed to load history data: " + err.message;
-        el.style.display = "";
-    });
+  try {
+    const res = await fetch(src.path);
+    if (!res.ok) throw new Error(res.status === 404
+      ? `${src.name} not found on device.`
+      : `HTTP ${res.status}`);
+
+    const text = await res.text();
+    const hist = parseCSV(text);
+
+    if (hist.labels.length === 0) {
+      showHistoryError(`No history data available in ${src.name}.`);
+      return;
+    }
+
+    historyCharts.push(makeChart("hist_air_temp", "Air Temp (°C)", "red",
+      hist.labels, hist.airTemp));
+    historyCharts.push(makeChart("hist_air_hum", "Air Humidity (%)", "blue",
+      hist.labels, hist.airHum));
+    historyCharts.push(makeChart("hist_water", "Water Temp (°C)", "green",
+      hist.labels, hist.waterTemp));
+    historyCharts.push(makeChart("hist_vpd", "VPD (kPa)", "purple",
+      hist.labels, hist.vpd));
+    historyCharts.push(makeChart("hist_light", "Light (1=On, 0=Off)", "orange",
+      hist.labels, hist.lightOn, /*stepped=*/true, /*y01=*/true));
+  } catch (err) {
+    showHistoryError("Failed to load history data: " + err.message);
+  }
+}
+
+histSourceSlider.addEventListener("input", loadHistoryFromSelectedSource);
+loadHistoryFromSelectedSource();
 </script>
 )rawliteral";
 
